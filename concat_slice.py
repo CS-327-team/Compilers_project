@@ -26,12 +26,14 @@ class Boolean:
 @dataclass
 class Variable:
     name: str
-
+    #defining slicing method for string slicing
     def slicing(self,name,start_index:NumLiteral,end_index:NumLiteral):
         
         if start_index>len(name)-1:
             raise IndexError
         if end_index<=start_index:
+            raise IndexError
+        if end_index>len(name):
             raise IndexError
         else:
             string_slice=name[start_index:end_index]
@@ -54,7 +56,7 @@ Value = Fraction
 class InvalidProgram(Exception):
     pass
 
-
+#Modified Binop("+",left,right) for typechecking of strings for concatenation
 def typeof(s: AST):
     match s:
         case Variable(name):
@@ -133,13 +135,15 @@ def test_let_eval():
     e3 = NumLiteral(6)
     e = BinOp("+", Let(a, e1, e2), Let(a, e3, e2))
     assert eval(e) == 22
-
+    
+#Sanity Check for concatenation
 def test_concat():
     a=Variable("hello")
     b=Variable("world")
     c=BinOp("+",a,b)
     assert eval(c)== "helloworld"
-
+    
+#Sanity Check for slicing
 def test_slice(a:Variable):
     
     Variable.slicing(Variable,a,1,4)
