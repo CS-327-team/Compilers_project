@@ -19,13 +19,44 @@ class BinOp:
 
 
 @dataclass
-class Boolean:
-    value: bool
+class Variable:
+    name: str
+
+    def slicing(self, start_index: NumLiteral, end_index: NumLiteral):
+
+        if start_index > len(self.name) - 1:
+            raise IndexError()
+        elif end_index <= start_index:
+            raise IndexError()
+        elif end_index > len(self.name):
+            raise IndexError()
+        else:
+            string_slice = self.name[start_index:end_index]
+            return Variable(string_slice)
 
 
 @dataclass
-class Variable:
-    name: str
+class If:
+    cond: "AST"
+    true_branch: "AST"
+    false_branch: "AST"
+
+
+# Implementing the BoolLiteral Type
+@dataclass
+class BoolLiteral:
+    value: bool
+
+    def __init__(self, val:bool):
+        self.value = val
+
+
+# implementing the print function
+@dataclass
+class Print:
+    def __init__(self, exp: "AST"):
+        self.exp = exp
+
 
 @dataclass
 class Let:
@@ -34,7 +65,7 @@ class Let:
     e2: "AST"
 
 
-AST = NumLiteral | BinOp | Variable | Let
+AST = NumLiteral | BinOp | Variable | Let | BoolLiteral
 
 Value = Fraction
 
@@ -49,13 +80,15 @@ def typeof(s: AST):
             return "type string"
         case NumLiteral(value):
             return "type Fraction"
-        case Boolean(value):
+        case BoolLiteral(value):
             return "type boolean"
         case BinOp("+", left, right):
-            if typeof(left) != "type Fraction" or typeof(right) != "type Fraction":
-                raise TypeError()
+            if typeof(left) != typeof(right):
+                return TypeError()
+            elif typeof(left) == "type boolean":
+                return TypeError()
             else:
-                return "type Fraction"
+                return typeof(left)
         case BinOp("-", left, right):
             if typeof(left) != "type Fraction" or typeof(right) != "type Fraction":
                 raise TypeError()
@@ -72,12 +105,12 @@ def typeof(s: AST):
             else:
                 return "type Fraction"
         case BinOp(">", left, right):
-            if typeof(left) == typeof(right):
+            if typeof(left) == "type Fraction" and typeof(right) == "type Fraction":
                 return "type boolean"
             else:
                 raise TypeError()
         case BinOp("<", left, right):
-            if typeof(left) == typeof(right):
+            if typeof(left) == "type Fraction" and typeof(right) == "type Fraction":
                 return "type boolean"
             else:
                 raise TypeError()
@@ -86,6 +119,27 @@ def typeof(s: AST):
                 return "type boolean"
             else:
                 raise TypeError()
+        case BinOp(">=", left, right):
+            if typeof(left) == "type Fraction" and typeof(right) == "type Fraction":
+                return "type boolean"
+            else:
+                raise TypeError()
+        case BinOp("<=", left, right):
+            if typeof(left) == "type Fraction" and typeof(right) == "type Fraction":
+                return "type boolean"
+            else:
+                raise TypeError()
+        case BinOp("!=", left, right):
+            if typeof(left) == "type Fraction" and typeof(right) == "type Fraction":
+                return "type boolean"
+            else:
+                raise TypeError()
+        case BinOp("=", left, right):
+            if typeof(left) == typeof(right):
+                return
+            else:
+                raise TypeError()
+    raise TypeError()
 
 
 def eval(program: AST, environment: Mapping[str, Value] = None) -> Value:
@@ -97,7 +151,7 @@ def eval(program: AST, environment: Mapping[str, Value] = None) -> Value:
             return value
         case Variable(name):
             return name
-        case Boolean(value):
+        case BoolLiteral(value):
             return value
         case Let(Variable(name), e1, e2):
             v1 = eval(e1, environment)
@@ -115,16 +169,46 @@ def eval(program: AST, environment: Mapping[str, Value] = None) -> Value:
         case BinOp("<", left, right):
             return eval(left, environment) < eval(right, environment)
         case BinOp("==", left, right):
-            return eval(left, environment) == eval(right, environment)       
-            
+            return eval(left, environment) == eval(right, environment)
+        case If(cond, true_branch, false_branch):
+            if eval(cond, environment):
+                return eval(true_branch, environment)
+            else:
+                return eval(false_branch, environment)
+        case BinOp("!=", left, right):
+            return eval(left, environment) != eval(right, environment)
+        case BinOp("<=", left, right):
+            return eval(left, environment) <= eval(right, environment)
+        case BinOp(">=", left, right):
+            return eval(left, environment) >= eval(right, environment)
+        case BinOp("=", left, right):
+            right_eval = eval(right)
+            match left:
+                case Variable(name):
+                    left.name = right_eval
+                    return
+                case BoolLiteral(value):
+                    left.value = right_eval
+                    return
+                case NumLiteral(value):
+                    left.value = right_eval
+                    return
+            raise InvalidProgram()
+        # adding case for print statement
+        case Print(exp):
+            value = eval(exp, environment)
+            print(value)
+            return value
+
     raise InvalidProgram()
+
 
 def boolify(s: AST):
     e = eval(s)
     if typeof(e) == "type Fraction":
-        return Boolean(True) if e > 0 else Boolean(False)
+        return BoolLiteral(True) if e > 0 else BoolLiteral(False)
     elif typeof(e) == "type string":
-        return Boolean(True) if len(e) > 0 else Boolean(False)
+        return BoolLiteral(True) if len(e) > 0 else BoolLiteral(False)
     else:
         return s
 
@@ -155,3 +239,5 @@ def test_let_eval():
     e3 = NumLiteral(6)
     e = BinOp("+", Let(a, e1, e2), Let(a, e3, e2))
     assert eval(e) == 22
+
+print(eval(BinOp(">",NumLiteral(3),NumLiteral(5))))
