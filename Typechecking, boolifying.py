@@ -65,7 +65,7 @@ class Let:
     e2: "AST"
 
 
-AST = NumLiteral | BinOp | Variable | Let | BoolLiteral
+AST = NumLiteral | BinOp | Variable | Let | BoolLiteral | If
 
 Value = Fraction
 
