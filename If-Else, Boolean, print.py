@@ -40,6 +40,11 @@ class BoolLiteral:
 class Print:
     def __init__(self, exp : 'AST'):
         self.exp = exp
+        
+@dataclass
+class Function:
+    params: List[str]
+    body: 'AST'
 
 AST = NumLiteral | BinOp | Variable | If | BoolLiteral | Print
 
@@ -93,6 +98,16 @@ def eval(program: AST, environment: Mapping[str, Value] = None) -> Value:
             value = eval(exp, environment)
             print(value)
             return value
+        # adding case for function 
+        case Function(params, body):
+            def func(*args):
+                if len(args) != len(params):
+                    raise InvalidProgram("Incorrect number of arguments")
+                local_env = dict(environment)
+                for name, value in zip(params, args):
+                    local_env[name] = value
+                return eval(body, local_env)
+            return func
     raise InvalidProgram()
 
 def test_if_else_eval():
@@ -128,6 +143,14 @@ def test_bool_eval():
 def test_print_eval():
     e1 = NumLiteral(2)
     to_print = Print(e1)
+    
+# testing the Function class
+def test_function_eval():
+    e1 = NumLiteral(2)
+    e2 = NumLiteral(3)
+    e3 = BinOp("*", Variable("x"), Variable("y"))
+    f = Function(["x", "y"], e3)
+    assert eval(f, {"x": e1, "y": e2}) == 6
 
     temp = StringIO()
     with redirect_stdout(temp):
