@@ -142,11 +142,6 @@ class Lexer:
         return tokens
 
 
-print(Lexer("1 if 1+2==3 then 4 else 5").tokenize())
-
-
-
-
 @dataclass
 class NumLiteral:
     value: Fraction
@@ -207,73 +202,6 @@ class Let:
     var: "AST"
     e1: "AST"
     e2: "AST"
-
-
-@dataclass
-class Parser:
-    lexer: Lexer
-
-    def parse_if(self):
-        self.lexer.match("if")
-        c = self.parse_exp()
-        self.lexer.match("then")
-        t = self.parse_exp()
-        self.lexer.match("else")
-        f = self.parse_exp()
-        self.lexer.match("end")
-        return If(c, t, f)
-
-    def parse_atom(self):
-        match self.lexer.peek_token():
-            case Identifier(name):
-                self.lexer.advance()
-                return Variable(name)
-            case Num(value):
-                self.lexer.advance()
-                return NumLiteral(name)
-            case Bool(value):
-                self.lexer.advance()
-                BoolLiteral(value)
-
-    def parse_mul(self):
-        left = self.parse_atom()
-        while True:
-            match self.lexer.peek_token():
-                case Operator(op) if op in "*/":
-                    self.lexer.advance()
-                    m = self.parse_atom()
-                    left = BinOp("*", left, m)
-                case _:
-                    break
-        return left
-
-    def parse_add(self):
-        left = self.parse_mul()
-        while True:
-            match self.lexer.peek_token():
-                case Operator(op) if op in "+-":
-                    self.lexer.advance()
-                    m = self.parse_mul()
-                    left = BinOp("-", left, m)
-                case _:
-                    break
-        return left
-
-    def parse_cmp(self):
-        left = self.parse_add()
-        match self.lexer.peek_token():
-            case Operator(op) if op in "> < >= <= ==".split():
-                self.lexer.advance()
-                m = self.parse_add()
-                left = BinOp(op, left, m)
-        return left
-
-    def parse_expr(self):
-        match self.lexer.peek_token():
-            case Keyword("if"):
-                return self.parse_if()
-            case _:
-                return self.parse_cmp()
 
 
 AST = NumLiteral | BinOp | Variable | Let | BoolLiteral | If
@@ -451,11 +379,13 @@ def test_let_eval():
     e = BinOp("+", Let(a, e1, e2), Let(a, e3, e2))
     assert eval(e) == 22
 
+
 class Parser:
     def __init__(self, tokens):
         self.tokens = tokens
         self.current_token = None
         self.position = -1
+        self.advance()
 
     def advance(self):
         self.position += 1
@@ -477,30 +407,43 @@ class Parser:
 
     def parse_mul(self):
         left = self.parse_atom()
-        while self.current_token in "*/":
-            op = self.current_token
-            right = self.parse_atom()
-            left = BinOp(op, left, right)
+        while True:
+            match self.current_token:
+                case Operator(value) if value in "*/":
+                    self.advance()
+                    right = self.parse_atom()
+                    left = BinOp(value, left, right)
+                case _:
+                    break
         return left
 
     def parse_add(self):
         left = self.parse_mul()
-        while self.current_token in "+-":
-            op = self.current_token
-            right = self.parse_mul()
-            left = BinOp(op, left, right)
+        while True:
+            match self.current_token:
+                case Operator(value) if value in "+-":
+                    self.advance()
+                    right = self.parse_mul()
+                    left = BinOp(value, left, right)
+                case _:
+                    break
         return left
 
     def parse_bool(self):
         left = self.parse_add()
-        while self.current_token in "> < >= <= ==".split():
-            op = self.current_token
-            right = self.parse_add()
-            left = BinOp(op, left, right)
-            if self.current_token in "> < >= <= ==".split():
-                raise TypeError()
+        while True:
+            match self.current_token:
+                case Operator(value) if value in "> < = == != <= >=".split():
+                    self.advance()
+                    right = self.parse_add()
+                    left = BinOp(value, left, right)
+                case _:
+                    break
         return left
 
-l=Lexer("1").tokenize()
-p=Parser(l).parse_bool()
+
+l = Lexer("1+3").tokenize()
+print([element for element in l])
+p = Parser(l).parse_bool()
 print(p)
+print(eval(p))
