@@ -69,9 +69,11 @@ class FunCall:
 
 @dataclass
 class ForLoop:
-    variable: 'AST'
-    iterable: 'AST'
+    var: 'AST'
+    start: 'AST'
+    end: 'AST'
     body: 'AST'
+
 
 
 AST = NumLiteral | BinOp | Variable | Let | LetMut | Put | Get | Seq | LetFun | FunCall
@@ -152,11 +154,6 @@ def resolve(program: AST, environment: Environment = None) -> AST:
             for arg in args:
                 rargs.append(resolve_(arg))
             return FunCall(rfn, rargs)
-        
-        case ForLoop(Variable(name) as v, iterable, body):
-            riter = resolve_(iterable)
-            rbody = resolve_(body)
-            return ForLoop(v, riter, rbody)
 
 def eval(program: AST, environment: Environment = None) -> Value:
     if environment is None:
@@ -213,30 +210,26 @@ def eval(program: AST, environment: Environment = None) -> Value:
             environment.exit_scope()
             return v
         
-        case ForLoop(Variable(_) as v, iterable, body):
-            rit = eval_(iterable)
-            if not isinstance(rit, list):
-                raise InvalidProgram("iterable is not a list")
-            result = None
-            for val in rit:
-                environment.enter_scope()
-                environment.add(v, val)
-                result = eval_(body)
-                environment.exit_scope()
-            return result
+        case ForLoop(Variable(_) as v, start, end, body):
+            start_val = eval_(start)
+            end_val = eval_(end)
+            environment.enter_scope()
+            for i in range(int(start_val), int(end_val)):
+                environment.add(v, NumLiteral(Fraction(i)))
+                eval_(body)
+            environment.exit_scope()
+            return None
     raise InvalidProgram()
 
 
 def test_for_loop():
-    e1=Variable("sum",0)
-    e2=NumLiteral("0")
-    e1=e2
-    e3=Variable("i",0)
-    e4=[NumLiteral(1),NumLiteral(2),NumLiteral(3),NumLiteral(4)]
-    e5=BinOp("+",e1,e2)
-    e6=BinOp("=",e1,eval(e5))
-    e7=ForLoop(e3,e4,e6)
-    print(eval(e7))
+    e1=Variable("j",0)
+    e2=NumLiteral(0)
+    e3=NumLiteral(4)
+    e4=Variable("Sum",0)
+    e5=BinOp("=",e4,BinOp("+",e4,e1))
+    e6=ForLoop(e1,e2,e3,BinOp)
+    print(eval(e6))
     #assert eval(e7)==10
 
 test_for_loop()
