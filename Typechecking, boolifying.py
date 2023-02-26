@@ -442,8 +442,6 @@ class Parser:
         return left
 
 
-l = Lexer("1+3").tokenize()
-print([element for element in l])
+l = Lexer("2    +       23*3        ==  100-99").tokenize()
 p = Parser(l).parse_bool()
-print(p)
 print(eval(p))
