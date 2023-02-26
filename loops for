@@ -1,0 +1,252 @@
+from dataclasses import dataclass
+from fractions import Fraction
+from typing import Union, Mapping, List
+
+currentID = 0
+
+def fresh():
+    global currentID
+    currentID = currentID + 1
+    return currentID
+
+@dataclass
+class NumLiteral:
+    value: Fraction
+    def __init__(self, *args):
+        self.value = Fraction(*args)
+
+
+@dataclass
+class BinOp:
+    operator: str
+    left: 'AST'
+    right: 'AST'
+
+@dataclass(frozen=True)
+class Variable:
+    name: str
+    id: int
+
+    def make(name):
+        return Variable(name, fresh())
+
+@dataclass
+class Let:
+    var: 'AST'
+    e1: 'AST'
+    e2: 'AST'
+
+@dataclass
+class LetMut:
+    var: 'AST'
+    e1: 'AST'
+    e2: 'AST'
+
+@dataclass
+class Put:
+    var: 'AST'
+    e1: 'AST'
+
+@dataclass
+class Get:
+    var: 'AST'
+
+@dataclass
+class Seq:
+    things: List['AST']
+
+@dataclass
+class LetFun:
+    name: 'AST'
+    params: List['AST']
+    body: 'AST'
+    expr: 'AST'
+
+@dataclass
+class FunCall:
+    fn: 'AST'
+    args: List['AST']
+
+@dataclass
+class ForLoop:
+    var: Variable
+    iterable: Union[range, List]
+    body: Seq
+
+
+AST = NumLiteral | BinOp | Variable | Let | LetMut | Put | Get | Seq | LetFun | FunCall
+
+@dataclass
+class FnObject:
+    params: List['AST']
+    body: 'AST'
+
+Value = Fraction | FnObject
+
+class InvalidProgram(Exception):
+    pass
+
+class Environment:
+    envs: List
+
+    def __init__(self):
+        self.envs = [{}]
+
+    def enter_scope(self):
+        self.envs.append({})
+
+    def exit_scope(self):
+        assert self.envs
+        self.envs.pop()
+
+    def add(self, name, value):
+        assert name not in self.envs[-1]
+        self.envs[-1][name] = value
+
+    def get(self, name):
+        for env in reversed(self.envs):
+            if name in env:
+                return env[name]
+        raise KeyError()
+
+    def update(self, name, value):
+        for env in reversed(self.envs):
+            if name in env:
+                env[name] = value
+                return
+        raise KeyError()
+
+def resolve(program: AST, environment: Environment = None) -> AST:
+    if environment is None:
+        environment = Environment()
+
+    def resolve_(program: AST) -> AST:
+        return resolve(program, environment)
+
+    match program:
+        case NumLiteral(_) as N:
+            return N
+        case Variable(name):
+            return environment.get(name)
+        case Let(Variable(name) as v, e1, e2):
+            re1 = resolve_(e1)
+            environment.enter_scope()
+            environment.add(name, v)
+            re2 = resolve_(e2)
+            environment.exit_scope()
+            return Let(v, re1, re2)
+        case LetFun(Variable(name) as v, params, body, expr):
+            environment.enter_scope()
+            environment.add(name, v)
+            environment.enter_scope()
+            for param in params:
+                environment.add(param.name, param)
+            rbody = resolve_(body)
+            environment.exit_scope()
+            rexpr = resolve_(expr)
+            environment.exit_scope()
+            return LetFun(v, params, rbody, rexpr)
+        case FunCall(fn, args):
+            rfn = resolve_(fn)
+            rargs = []
+            for arg in args:
+                rargs.append(resolve_(arg))
+            return FunCall(rfn, rargs)
+        
+        case ForLoop(Variable(var_name), iterable, body):
+            # Create a new variable to hold the result of each iteration.
+            temp_var = Variable.make("__for_temp__")
+            # Create a new sequence to hold the results of each iteration.
+            results = Seq([])
+            # Loop through the iterable and append the body with the current value of the variable.
+            for i in iterable:
+                environment.enter_scope()
+                environment.add(var_name, NumLiteral(i))
+                result = resolve_(body)
+                environment.add(temp_var.name, result)
+                environment.exit_scope()
+                results.things.append(Variable(temp_var.name))
+            # Return the sequence of results.
+            return results
+
+def eval(program: AST, environment: Environment = None) -> Value:
+    if environment is None:
+        environment = Environment()
+
+    def eval_(program):
+        return eval(program, environment)
+
+    match program:
+        case NumLiteral(value):
+            return value
+        case Variable(_) as v:
+            return environment.get(v)
+        case Let(Variable(_) as v, e1, e2) | LetMut(Variable(_) as v, e1, e2):
+            v1 = eval_(e1)
+            environment.enter_scope()
+            environment.add(v, v1)
+            v2 = eval_(e2)
+            environment.exit_scope()
+            return v2
+        case BinOp("+", left, right):
+            return eval_(left) + eval_(right)
+        case BinOp("-", left, right):
+            return eval_(left) - eval_(right)
+        case BinOp("*", left, right):
+            return eval_(left) * eval_(right)
+        case BinOp("/", left, right):
+            return eval_(left) / eval_(right)
+        case Put(Variable(_) as v, e):
+            environment.update(v, eval_(e))
+            return environment.get(v)
+        case Get(Variable(_) as v):
+            return environment.get(v)
+        case Seq(things):
+            v = None
+            for thing in things:
+                v = eval_(thing)
+            return v
+        case LetFun(Variable(_) as v, params, body, expr):
+            environment.enter_scope()
+            environment.add(v, FnObject(params, body))
+            v = eval_(expr)
+            environment.exit_scope()
+            return v
+        case FunCall(Variable(_) as v, args):
+            fn = environment.get(v)
+            argv = []
+            for arg in args:
+                argv.append(eval_(arg))
+            environment.enter_scope()
+            for param, arg in zip(fn.params, argv):
+                environment.add(param, arg)
+            v = eval_(fn.body)
+            environment.exit_scope()
+            return v
+        
+        case ForLoop(Variable(var_name), iterable, body):
+            # Create a new variable to hold the result of each iteration.
+            temp_var = Variable.make("__for_temp__")
+            # Create a new sequence to hold the results of each iteration.
+            results = Seq([])
+            # Loop through the iterable and append the body with the current value of the variable.
+            for i in iterable:
+                environment.enter_scope()
+                environment.add(var_name, NumLiteral(i))
+                result = eval_(body)
+                environment.add(temp_var.name, result)
+                environment.exit_scope()
+                results.things.append(environment.get(temp_var.name))
+            # Return the sequence of results.
+            return results
+    raise InvalidProgram()
+
+
+def test_for_loop():
+    e1=Variable("sum",0)
+    e2=NumLiteral("0")
+    e1=e2
+    e3=ForLoop(Variable("i",0),(1,11),BinOp("+",e1,"i"))
+    print(eval(e3))
+    #assert eval(e3)==35
+
