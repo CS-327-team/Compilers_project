@@ -69,9 +69,9 @@ class FunCall:
 
 @dataclass
 class ForLoop:
-    var: Variable
-    iterable: Union[range, List]
-    body: Seq
+    variable: 'AST'
+    iterable: 'AST'
+    body: 'AST'
 
 
 AST = NumLiteral | BinOp | Variable | Let | LetMut | Put | Get | Seq | LetFun | FunCall
@@ -153,21 +153,10 @@ def resolve(program: AST, environment: Environment = None) -> AST:
                 rargs.append(resolve_(arg))
             return FunCall(rfn, rargs)
         
-        case ForLoop(Variable(var_name), iterable, body):
-            # Create a new variable to hold the result of each iteration.
-            temp_var = Variable.make("__for_temp__")
-            # Create a new sequence to hold the results of each iteration.
-            results = Seq([])
-            # Loop through the iterable and append the body with the current value of the variable.
-            for i in iterable:
-                environment.enter_scope()
-                environment.add(var_name, NumLiteral(i))
-                result = resolve_(body)
-                environment.add(temp_var.name, result)
-                environment.exit_scope()
-                results.things.append(Variable(temp_var.name))
-            # Return the sequence of results.
-            return results
+        case ForLoop(Variable(name) as v, iterable, body):
+            riter = resolve_(iterable)
+            rbody = resolve_(body)
+            return ForLoop(v, riter, rbody)
 
 def eval(program: AST, environment: Environment = None) -> Value:
     if environment is None:
@@ -224,21 +213,17 @@ def eval(program: AST, environment: Environment = None) -> Value:
             environment.exit_scope()
             return v
         
-        case ForLoop(Variable(var_name), iterable, body):
-            # Create a new variable to hold the result of each iteration.
-            temp_var = Variable.make("__for_temp__")
-            # Create a new sequence to hold the results of each iteration.
-            results = Seq([])
-            # Loop through the iterable and append the body with the current value of the variable.
-            for i in iterable:
+        case ForLoop(Variable(_) as v, iterable, body):
+            rit = eval_(iterable)
+            if not isinstance(rit, list):
+                raise InvalidProgram("iterable is not a list")
+            result = None
+            for val in rit:
                 environment.enter_scope()
-                environment.add(var_name, NumLiteral(i))
+                environment.add(v, val)
                 result = eval_(body)
-                environment.add(temp_var.name, result)
                 environment.exit_scope()
-                results.things.append(environment.get(temp_var.name))
-            # Return the sequence of results.
-            return results
+            return result
     raise InvalidProgram()
 
 
@@ -246,7 +231,12 @@ def test_for_loop():
     e1=Variable("sum",0)
     e2=NumLiteral("0")
     e1=e2
-    e3=ForLoop(Variable("i",0),(1,11),BinOp("+",e1,"i"))
-    print(eval(e3))
-    #assert eval(e3)==35
+    e3=Variable("i",0)
+    e4=[NumLiteral(1),NumLiteral(2),NumLiteral(3),NumLiteral(4)]
+    e5=BinOp("+",e1,e2)
+    e6=BinOp("=",e1,eval(e5))
+    e7=ForLoop(e3,e4,e6)
+    print(eval(e7))
+    #assert eval(e7)==10
 
+test_for_loop()
