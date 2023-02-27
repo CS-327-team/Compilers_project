@@ -464,3 +464,7 @@ class Parser:
                 return self.parse_ifelse()
             case _:
                 return self.parse_bool()
+            
+l=Lexer("2+3==9").tokenize()
+p=Parser(l).parse_expr()
+print(eval(p))
