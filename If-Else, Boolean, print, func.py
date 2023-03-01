@@ -47,17 +47,18 @@ class Function:
     params: List[str]
     body: 'AST'
 
-    def __call__(self, *args):
+    def __call__(self, *args):   
         if len(args) != len(self.params):
             raise InvalidProgram("Incorrect number of arguments")
 
         local_env = dict()
         for name, value in zip(self.params, args):
-            local_env[name] = value
+            local_env[name] = value           # storing the parameters of the function and the local variables created
 
-        local_env['recursion'] = lambda *inner_args: self(*inner_args)
+         # the lambda function takes the arguments using *inner_args and calls itself using self
+        local_env['recursion'] = lambda *inner_args: self(*inner_args)   # implementing recurssion 
 
-        return eval(self.body, local_env)
+        return eval(self.body, local_env)   # evaluates the body of the function  
 
 AST = NumLiteral | BinOp | Variable | If | BoolLiteral | Print | Function
 
@@ -155,9 +156,11 @@ def test_print_eval():
 
 # testing the recursive functions
 def test_function_eval():
-    f = Function(['n'],
-                 If(BinOp("==", Variable('n'), NumLiteral(0)),
+    # factorial example
+    f = Function(['n'],                 
+                 If(BinOp("==", Variable('n'), NumLiteral(0)),   # if n == 0 return 1 
                     NumLiteral(1),
-                    BinOp("*", Variable('n'), Function(['m'], BinOp("recursion", BinOp("-", Variable('m'), NumLiteral(1)))))))
+                    BinOp("*", Variable('n'), Function(['m'], BinOp("recursion", BinOp("-", Variable('m'), NumLiteral(1)))))))  
+    # if n != 0, n is multiplied by f(n-1) -> recurssion 
 
     assert eval(f(4)) == 24
