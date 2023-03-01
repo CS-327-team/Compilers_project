@@ -59,7 +59,7 @@ class Function:
 
         return eval(self.body, local_env)
 
-AST = NumLiteral | BinOp | Variable | If | BoolLiteral | Print
+AST = NumLiteral | BinOp | Variable | If | BoolLiteral | Print | Function
 
 Value = [Fraction, bool]       # updated Value, for BoolLiteral
 
