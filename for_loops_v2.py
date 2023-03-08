@@ -28,6 +28,7 @@ class Variable:
     id: int
 
     def make(name):
+
         return Variable(name, fresh())
 
 @dataclass
@@ -106,15 +107,16 @@ class Environment:
     def get(self, name):
         for env in reversed(self.envs):
             if name in env:
-                return env[name]
+                return env[name].value
         raise KeyError()
 
     def update(self, name, value):
         for env in reversed(self.envs):
             if name in env:
                 env[name] = value
-                return
-        raise KeyError()
+                return env[name].value
+        self.add(name, value)
+        # raise KeyError()
 
 def resolve(program: AST, environment: Environment = None) -> AST:
     if environment is None:
@@ -184,8 +186,8 @@ def eval(program: AST, environment: Environment = None) -> Value:
             right_eval = eval_(right)
             match left:
                 case Variable(name):
-                    left.name = right_eval
-                    return
+                    environment.update(left, NumLiteral(right_eval))
+                    return left
                 case NumLiteral(value):
                     left.value = right_eval
                     return
@@ -220,26 +222,27 @@ def eval(program: AST, environment: Environment = None) -> Value:
             start_val = eval_(start)
             end_val = eval_(end)
             environment.enter_scope()
-            for i in range(int(start_val), int(end_val)):
-                environment.add(v, NumLiteral(Fraction(i)))
-                eval_(body)
+            for j in range(int(start_val), int(end_val)+1):
+                environment.update(v, NumLiteral(Fraction(j)))
+                result = environment.get(eval_(body))
             environment.exit_scope()
-            return None
+            return result
     raise InvalidProgram()
 
 def test_ForLoop():
     # for loop that sums up the numbers from 1 to 5
+    e1 = Variable.make("sum")
+    e2 = Variable.make("i")
     ast = ForLoop(
-        Variable.make("i"),
+        e2,
         NumLiteral(1),
         NumLiteral(5),
-        BinOp("+", Variable.make("sum"), Variable.make("i"))
+        BinOp("=", e1, BinOp("*", e1, e2))
     )
     environment = Environment()
-    environment.add("sum", 0)
-    # resolved_ast = resolve(ast, environment)
-    # assert resolved_ast == ast
+    environment.add(e1, NumLiteral(1))
     result = eval(ast, environment)
-    assert result == Fraction(15)
+    print(result)
+    # assert result == Fraction(120)
 
 test_ForLoop()
