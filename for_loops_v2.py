@@ -74,9 +74,7 @@ class ForLoop:
     end: 'AST'
     body: 'AST'
 
-
-
-AST = NumLiteral | BinOp | Variable | Let | LetMut | Put | Get | Seq | LetFun | FunCall
+AST = NumLiteral | BinOp | Variable | Let | LetMut | Put | Get | Seq | LetFun | FunCall | ForLoop
 
 @dataclass
 class FnObject:
@@ -182,6 +180,15 @@ def eval(program: AST, environment: Environment = None) -> Value:
             return eval_(left) * eval_(right)
         case BinOp("/", left, right):
             return eval_(left) / eval_(right)
+        case BinOp("=", left, right):
+            right_eval = eval_(right)
+            match left:
+                case Variable(name):
+                    left.name = right_eval
+                    return
+                case NumLiteral(value):
+                    left.value = right_eval
+                    return
         case Put(Variable(_) as v, e):
             environment.update(v, eval_(e))
             return environment.get(v)
@@ -209,7 +216,6 @@ def eval(program: AST, environment: Environment = None) -> Value:
             v = eval_(fn.body)
             environment.exit_scope()
             return v
-        
         case ForLoop(Variable(_) as v, start, end, body):
             start_val = eval_(start)
             end_val = eval_(end)
@@ -221,15 +227,19 @@ def eval(program: AST, environment: Environment = None) -> Value:
             return None
     raise InvalidProgram()
 
+def test_ForLoop():
+    # for loop that sums up the numbers from 1 to 5
+    ast = ForLoop(
+        Variable.make("i"),
+        NumLiteral(1),
+        NumLiteral(5),
+        BinOp("+", Variable.make("sum"), Variable.make("i"))
+    )
+    environment = Environment()
+    environment.add("sum", 0)
+    # resolved_ast = resolve(ast, environment)
+    # assert resolved_ast == ast
+    result = eval(ast, environment)
+    assert result == Fraction(15)
 
-def test_for_loop():
-    e1=Variable("j",0)
-    e2=NumLiteral(0)
-    e3=NumLiteral(4)
-    e4=Variable("Sum",0)
-    e5=BinOp("=",e4,BinOp("+",e4,e1))
-    e6=ForLoop(e1,e2,e3,BinOp)
-    print(eval(e6))
-    #assert eval(e7)==10
-
-test_for_loop()
+test_ForLoop()
