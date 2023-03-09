@@ -83,14 +83,13 @@ def eval(program: AST, environment: Mapping[str, Value] = None) -> Value:
             # Evaluates the second expression with the first expression's result bound to the variable in parallel
             return eval(e2, environment | { name: v1 }) 
         case Cons(head, tail):
-            return [eval(head, environment)] + [eval(tail, environment)]
+            return [eval(tail, environment)].append(eval(head,environment))
         case IsEmpty(lst):
             return len(eval(lst, environment)) == 0
         case Head(lst):
             return eval(lst, environment)[0]
         case Tail(lst):
             return eval(lst, environment)[1:]
-      
     raise InvalidProgram() # Raises an error if the program is invalid
 
 def test_eval():
@@ -149,8 +148,10 @@ def test_list_list():
     e7 = Tail(e4)
     assert eval(e5) == False
     assert eval(e6) == 2
+    assert eval(e4) == [2,7,9,0]
     assert eval(e7) == [7, 9, 0]
     e8 = Cons(NumLiteral(5), Cons(BinOp("*", e1, e2), e7))
     assert eval(e8) == [5, 14, 7, 9, 0]
 
 test_list_list()
+
