@@ -78,9 +78,10 @@ def eval(program: AST, environment: Mapping[str, Value] = None) -> Value:
             if not isinstance(array_value, list):
                 raise InvalidProgram("Can only pop from a list")
             try:
-                return array_value.pop()
+                array_value.pop(-1) # remove last element
             except IndexError:
                 raise InvalidProgram("Can't pop from an empty list")
+            return array_value
         case Concat(left, right):
             left_value = eval(left, environment)
             right_value = eval(right, environment)
@@ -118,9 +119,15 @@ def test_eval():
     assert eval(e5) == [1, 2, 3]
     assert eval(e6) == 1
     assert eval(Index(e5, NumLiteral(2))) == 3
-    assert eval(e7) == 3
+    assert eval(e7) == [1,2]
     assert eval(e8) == [1, 2, 1, 2, 3]
     assert eval(e9) == [0, 2]
 
 
 test_eval()
+
+
+
+
+
+
