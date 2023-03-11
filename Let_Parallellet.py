@@ -79,8 +79,8 @@ def test_eval():
     e5 = BinOp("+", e2, e3)
     e6 = BinOp("/", e5, e4)
     e7 = BinOp("-", e1, e6)
-    #print(f"e7: {e7}")  # Debugging line
-    #print(f"eval(e7): {eval(e7)}")  # Debugging line
+    #print(f"e7: {e7}") 
+    #print(f"eval(e7): {eval(e7)}")  
     assert eval(e7) == Fraction(4, 5)
 
 
