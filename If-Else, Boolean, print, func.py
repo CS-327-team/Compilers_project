@@ -44,9 +44,9 @@ class Print:
 # implementing functions(with recurssion)
 @dataclass
 class Function:
-    params: List[str]
+    params: list[str]
     body: 'AST'
-
+                    
     def __call__(self, *args):   
         if len(args) != len(self.params):
             raise InvalidProgram("Incorrect number of arguments")
@@ -151,7 +151,7 @@ def test_print_eval():
     temp = StringIO()
     with redirect_stdout(temp):
         eval(to_print)
-    ans = temp.getvalue
+    ans = temp.getvalue()
     assert ans == "2\n"
 
 # testing the recursive functions
@@ -163,4 +163,31 @@ def test_function_eval():
                     BinOp("*", Variable('n'), Function(['m'], BinOp("recursion", BinOp("-", Variable('m'), NumLiteral(1)))))))  
     # if n != 0, n is multiplied by f(n-1) -> recurssion 
 
+    assert eval(f(0)) == 1
+    assert eval(f(1)) == 1
+    assert eval(f(2)) == 2
+    assert eval(f(3)) == 6
     assert eval(f(4)) == 24
+    assert eval(f(5)) == 120
+
+def test_function_eval():
+    # fibonacci example
+    f = Function(['n'],
+                 If(BinOp("==", Variable('n'), NumLiteral(0)),
+                    NumLiteral(0),
+                    If(BinOp("==", Variable('n'), NumLiteral(1)),
+                       NumLiteral(1),
+                       BinOp("+",
+                             Function([], If(BinOp("==", Variable('n'), NumLiteral(2)),
+                                              NumLiteral(1),
+                                              BinOp("+",
+                                                    Function(['n'], BinOp("-", Variable('n'), NumLiteral(1))),
+                                                    Function(['n'], BinOp("-", Variable('n'), NumLiteral(2)))))),
+                             NumLiteral(0)))))
+    
+    assert eval(f(0)) == 0
+    assert eval(f(1)) == 1
+    assert eval(f(2)) == 1
+    assert eval(f(3)) == 2
+    assert eval(f(4)) == 3
+    assert eval(f(5)) == 5
