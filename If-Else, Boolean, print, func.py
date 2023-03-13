@@ -40,13 +40,27 @@ class BoolLiteral:
 class Print:
     def __init__(self, exp : 'AST'):
         self.exp = exp
-        
+
+# implementing functions(with recurssion)
 @dataclass
 class Function:
     params: List[str]
     body: 'AST'
 
-AST = NumLiteral | BinOp | Variable | If | BoolLiteral | Print
+    def __call__(self, *args):   
+        if len(args) != len(self.params):
+            raise InvalidProgram("Incorrect number of arguments")
+
+        local_env = dict()
+        for name, value in zip(self.params, args):
+            local_env[name] = value           # storing the parameters of the function and the local variables created
+
+         # the lambda function takes the arguments using *inner_args and calls itself using self
+        local_env['recursion'] = lambda *inner_args: self(*inner_args)   # implementing recurssion 
+
+        return eval(self.body, local_env)   # evaluates the body of the function  
+
+AST = NumLiteral | BinOp | Variable | If | BoolLiteral | Print | Function
 
 Value = [Fraction, bool]       # updated Value, for BoolLiteral
 
@@ -98,16 +112,6 @@ def eval(program: AST, environment: Mapping[str, Value] = None) -> Value:
             value = eval(exp, environment)
             print(value)
             return value
-        # adding case for function 
-        case Function(params, body):
-            def func(*args):
-                if len(args) != len(params):
-                    raise InvalidProgram("Incorrect number of arguments")
-                local_env = dict(environment)
-                for name, value in zip(params, args):
-                    local_env[name] = value
-                return eval(body, local_env)
-            return func
     raise InvalidProgram()
 
 def test_if_else_eval():
@@ -143,17 +147,20 @@ def test_bool_eval():
 def test_print_eval():
     e1 = NumLiteral(2)
     to_print = Print(e1)
-    
-# testing the Function class
-def test_function_eval():
-    e1 = NumLiteral(2)
-    e2 = NumLiteral(3)
-    e3 = BinOp("*", Variable("x"), Variable("y"))
-    f = Function(["x", "y"], e3)
-    assert eval(f, {"x": e1, "y": e2}) == 6
 
     temp = StringIO()
     with redirect_stdout(temp):
         eval(to_print)
     ans = temp.getvalue
     assert ans == "2\n"
+
+# testing the recursive functions
+def test_function_eval():
+    # factorial example
+    f = Function(['n'],                 
+                 If(BinOp("==", Variable('n'), NumLiteral(0)),   # if n == 0 return 1 
+                    NumLiteral(1),
+                    BinOp("*", Variable('n'), Function(['m'], BinOp("recursion", BinOp("-", Variable('m'), NumLiteral(1)))))))  
+    # if n != 0, n is multiplied by f(n-1) -> recurssion 
+
+    assert eval(f(4)) == 24

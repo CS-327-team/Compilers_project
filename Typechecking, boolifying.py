@@ -163,14 +163,14 @@ class Variable:
 
     def slicing(self, start_index: NumLiteral, end_index: NumLiteral):
 
-        if start_index > len(self.name) - 1:
+        if start_index.value > len(self.name) - 1:
             raise IndexError()
-        elif end_index <= start_index:
+        elif end_index.value <= start_index.value:
             raise IndexError()
-        elif end_index > len(self.name):
+        elif end_index.value > len(self.name):
             raise IndexError()
         else:
-            string_slice = self.name[start_index:end_index]
+            string_slice = self.name[start_index.value:end_index.value]
             return Variable(string_slice)
 
 
@@ -278,6 +278,11 @@ def typeof(s: AST):
                 return
             else:
                 raise TypeError()
+        
+        case If(cond,true_branch,false_branch):
+            if typeof(cond)!="type boolean":
+                raise TypeError
+            return
     raise TypeError()
 
 
@@ -441,9 +446,25 @@ class Parser:
                     break
         return left
 
-
-l = Lexer("1+3").tokenize()
-print([element for element in l])
-p = Parser(l).parse_bool()
-print(p)
+    def parse_ifelse(self):
+        IF=self.parse_bool()
+        self.advance()
+        COND=self.parse_bool()
+        THEN=self.parse_bool()
+        self.advance()
+        TRUE=self.parse_bool()
+        ELSE=self.parse_bool()
+        self.advance()
+        FALSE=self.parse_bool()
+        return If(COND,TRUE,FALSE)
+    
+    def parse_expr(self):
+        match self.current_token:
+            case Keyword(word):
+                return self.parse_ifelse()
+            case _:
+                return self.parse_bool()
+            
+l=Lexer("2+3==9").tokenize()
+p=Parser(l).parse_expr()
 print(eval(p))
