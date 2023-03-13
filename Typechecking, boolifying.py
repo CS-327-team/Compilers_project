@@ -64,7 +64,7 @@ class EndOfTokens(Exception):
 def convert_to_token(c):
     if c == "True" or c == "False":
         return Bool(c)
-    elif c in ["=", ">", "<", "+", "-", "*", "/", "!=", "<=", ">="]:
+    elif c in ["=", ">", "<", "+", "-", "*", "/", "!=", "<=", ">=","^","%"]:
         return Operator(c)
     elif c in "if then else end while do done".split():
         return Keyword(c)
@@ -81,7 +81,7 @@ class TokenError(Exception):
     pass
 
 
-operations = ["=", ">", "<", "+", "-", "*", "/", "!=", "<=", ">="]
+operations = ["=", ">", "<", "+", "-", "*", "/", "!=", "<=", ">=","%","^"]
 keywords = "if then else end while do done".split()
 
 
@@ -105,7 +105,7 @@ class Lexer:
         tokens = []
         while self.current_char != None:
             match self.current_char:
-                case op if op in ["+", "-", "*", "/"]:
+                case op if op in ["+", "-", "*", "/","%","^"]:
                     tokens.append(Operator(op))
                     self.advance()
                 case op if op in ["!", "=", ">", "<"]:
@@ -233,6 +233,16 @@ def typeof(s: AST):
                 raise TypeError()
             else:
                 return "type Fraction"
+        case BinOp("%",left,right):
+            if typeof(left)=="type Fraction" and typeof(right)=="type Fraction":
+                return "type Fraction"
+            else:
+                raise TypeError()
+        case BinOp("^",left,right):
+            if typeof(left)!="type Fraction" or typeof(right)!="type Fraction":
+                raise TypeError()
+            else:
+                return "type Fraction"
         case BinOp("*", left, right):
             if typeof(left) != "type Fraction" or typeof(right) != "type Fraction":
                 raise TypeError()
@@ -314,11 +324,15 @@ def eval(program: AST, environment: Mapping[str, Value] = None) -> Value:
             return eval(left, environment) < eval(right, environment)
         case BinOp("==", left, right):
             return eval(left, environment) == eval(right, environment)
+        case BinOp("%",left,right):
+            return eval(left)%eval(right)
         case If(cond, true_branch, false_branch):
             if eval(cond, environment):
                 return eval(true_branch, environment)
             else:
                 return eval(false_branch, environment)
+        case BinOp("^",left,right):
+            return eval(left)**eval(right)
         case BinOp("!=", left, right):
             return eval(left, environment) != eval(right, environment)
         case BinOp("<=", left, right):
@@ -409,14 +423,26 @@ class Parser:
             case Bool(value):
                 self.advance()
                 return BoolLiteral(value)
-
-    def parse_mul(self):
-        left = self.parse_atom()
+    
+    def parse_exp(self):
+        left=self.parse_atom()
         while True:
             match self.current_token:
-                case Operator(value) if value in "*/":
+                case Operator(value) if value=="^":
                     self.advance()
-                    right = self.parse_atom()
+                    right=self.parse_atom()
+                    left=BinOp(value,left,right)
+                case _:
+                    break
+        return left
+
+    def parse_mul(self):
+        left = self.parse_exp()
+        while True:
+            match self.current_token:
+                case Operator(value) if value in "*/%":
+                    self.advance()
+                    right = self.parse_exp()
                     left = BinOp(value, left, right)
                 case _:
                     break
@@ -465,6 +491,6 @@ class Parser:
             case _:
                 return self.parse_bool()
             
-l=Lexer("2+3==9").tokenize()
+l=Lexer("2^3*7").tokenize()
 p=Parser(l).parse_expr()
 print(eval(p))

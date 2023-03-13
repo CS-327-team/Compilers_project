@@ -246,3 +246,9 @@ def test_ForLoop():
     # assert result == Fraction(120)
 
 test_ForLoop()
+
+
+# "for(i=1, i<5, i++){
+#    sum = 1
+#    sum = sum*i 
+# }"
