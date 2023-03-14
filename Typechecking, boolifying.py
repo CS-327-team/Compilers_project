@@ -504,7 +504,7 @@ class Parser:
         return left
 
     def parse_bool(self):
-        left = self.parse_add()
+        left=self.parse_add()
         match self.current_token:
             case Operator(value) if value in "> < == != <= >=".split():
                 self.advance()
@@ -513,7 +513,7 @@ class Parser:
         return left
 
     def parse_assign(self):
-        left = self.parse_atom()
+        left = self.parse_bool()
         match self.current_token:
             case Operator("="):
                 self.advance()
@@ -571,7 +571,7 @@ def splitter(tokens, masterlist):
 
 
 masterlist = []
-l = Lexer("a=4;a+a>9").tokenize()
+l = Lexer("a=4;a>4").tokenize()
 splitter(l, masterlist)
 for token in masterlist:
     print(token)
