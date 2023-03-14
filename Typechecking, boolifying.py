@@ -145,7 +145,7 @@ class Lexer:
                     tokens.append(
                         Keyword(temp_str)
                     ) if temp_str in keywords else tokens.append(
-                        Bool(temp_str)
+                        Bool(True if temp_str=='True' else False)
                     ) if temp_str in "True False".split() else tokens.append(
                         Identifier(temp_str)
                     )
@@ -246,11 +246,13 @@ def typeof(s: AST):
         case BoolLiteral(value):
             return "type boolean"
         case Var(name, value):
-            return (
-                "type boolean" * (type(value) == bool)
-                + "type string" * (type(value) == str)
-                + "type Fraction" * (type(value) == Fraction)
-            )
+            flag=1
+            for var in variable_list:
+                if var.name==name:
+                    flag=0
+                    return "type boolean"*(type(var.value)==bool)+"type string"*(type(var.value)==str)+"type Fraction"*(type(var.value)==Fraction)
+            if flag:
+                return InvalidProgram("reference before assignment")
         case BinOp("+", left, right):
             if typeof(left) != typeof(right):
                 return TypeError()
@@ -332,7 +334,7 @@ def typeof(s: AST):
 
 
 def eval(program: AST, environment: Mapping[str, Value] = None) -> Value:
-    # typeof(program)
+    typeof(program)
     if environment is None:
         environment = {}
     match program:
@@ -568,10 +570,8 @@ def splitter(tokens, masterlist):
     else:
         masterlist.append(tokens[: tokens.index(Delimiter(";"))])
         splitter(tokens[tokens.index(Delimiter(";")) + 1 :], masterlist)
-
-
 masterlist = []
-l = Lexer("a=4;a>4").tokenize()
+l = Lexer("a=True;a==False").tokenize()
 splitter(l, masterlist)
 for token in masterlist:
     print(token)
