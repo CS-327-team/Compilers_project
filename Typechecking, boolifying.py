@@ -4,6 +4,7 @@ from typing import Union, Mapping, Literal
 
 digit_list = "1234567890"
 alphabet_list = "ABCDEFGHIJKLOMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+variable_list = []
 
 
 @dataclass
@@ -53,7 +54,17 @@ class Operator:
     operator: str
 
 
-Token = Num | Bool | Keyword | Identifier | Operator
+@dataclass
+class Paranthesis:
+    paran: str
+
+
+@dataclass
+class Delimiter:
+    delim: str
+
+
+Token = Num | Bool | Keyword | Identifier | Operator | Paranthesis | Delimiter
 
 
 @dataclass
@@ -64,7 +75,7 @@ class EndOfTokens(Exception):
 def convert_to_token(c):
     if c == "True" or c == "False":
         return Bool(c)
-    elif c in ["=", ">", "<", "+", "-", "*", "/", "!=", "<=", ">=","^","%"]:
+    elif c in ["=", ">", "<", "+", "-", "*", "/", "!=", "<=", ">=", "^", "%"]:
         return Operator(c)
     elif c in "if then else end while do done".split():
         return Keyword(c)
@@ -81,8 +92,9 @@ class TokenError(Exception):
     pass
 
 
-operations = ["=", ">", "<", "+", "-", "*", "/", "!=", "<=", ">=","%","^"]
+operations = ["=", ">", "<", "+", "-", "*", "/", "!=", "<=", ">=", "%", "^"]
 keywords = "if then else end while do done".split()
+delimiters = ['"', ";"]
 
 
 class Lexer:
@@ -105,7 +117,7 @@ class Lexer:
         tokens = []
         while self.current_char != None:
             match self.current_char:
-                case op if op in ["+", "-", "*", "/","%","^"]:
+                case op if op in ["+", "-", "*", "/", "%", "^"]:
                     tokens.append(Operator(op))
                     self.advance()
                 case op if op in ["!", "=", ">", "<"]:
@@ -137,6 +149,12 @@ class Lexer:
                     ) if temp_str in "True False".split() else tokens.append(
                         Identifier(temp_str)
                     )
+                case s if s in "()":
+                    tokens.append(Paranthesis(s))
+                    self.advance()
+                case s if s in delimiters:
+                    tokens.append(Delimiter(s))
+                    self.advance()
                 case _:
                     raise TypeError()
         return tokens
@@ -170,8 +188,14 @@ class Variable:
         elif end_index.value > len(self.name):
             raise IndexError()
         else:
-            string_slice = self.name[start_index.value:end_index.value]
+            string_slice = self.name[start_index.value : end_index.value]
             return Variable(string_slice)
+
+
+@dataclass
+class Var:
+    name: str
+    value: str | int | bool = None
 
 
 @dataclass
@@ -204,7 +228,7 @@ class Let:
     e2: "AST"
 
 
-AST = NumLiteral | BinOp | Variable | Let | BoolLiteral | If
+AST = NumLiteral | BinOp | Variable | Let | BoolLiteral | If | Var
 
 Value = Fraction
 
@@ -221,6 +245,12 @@ def typeof(s: AST):
             return "type Fraction"
         case BoolLiteral(value):
             return "type boolean"
+        case Var(name, value):
+            return (
+                "type boolean" * (type(value) == bool)
+                + "type string" * (type(value) == str)
+                + "type Fraction" * (type(value) == Fraction)
+            )
         case BinOp("+", left, right):
             if typeof(left) != typeof(right):
                 return TypeError()
@@ -233,13 +263,13 @@ def typeof(s: AST):
                 raise TypeError()
             else:
                 return "type Fraction"
-        case BinOp("%",left,right):
-            if typeof(left)=="type Fraction" and typeof(right)=="type Fraction":
+        case BinOp("%", left, right):
+            if typeof(left) == "type Fraction" and typeof(right) == "type Fraction":
                 return "type Fraction"
             else:
                 raise TypeError()
-        case BinOp("^",left,right):
-            if typeof(left)!="type Fraction" or typeof(right)!="type Fraction":
+        case BinOp("^", left, right):
+            if typeof(left) != "type Fraction" or typeof(right) != "type Fraction":
                 raise TypeError()
             else:
                 return "type Fraction"
@@ -284,20 +314,25 @@ def typeof(s: AST):
             else:
                 raise TypeError()
         case BinOp("=", left, right):
-            if typeof(left) == typeof(right):
+            flag = 1
+            for var in variable_list:
+                if var.name == left.name:
+                    flag = 0
+                    if type(var.value) == type(eval(right)):
+                        return
+            if flag:
                 return
-            else:
-                raise TypeError()
-        
-        case If(cond,true_branch,false_branch):
-            if typeof(cond)!="type boolean":
-                raise TypeError
+            raise TypeError("variables cannot change type")
+
+        case If(cond, true_branch, false_branch):
+            if typeof(cond) != "type boolean":
+                raise TypeError("Invalid condition")
             return
     raise TypeError()
 
 
 def eval(program: AST, environment: Mapping[str, Value] = None) -> Value:
-    typeof(program)
+    # typeof(program)
     if environment is None:
         environment = {}
     match program:
@@ -310,6 +345,11 @@ def eval(program: AST, environment: Mapping[str, Value] = None) -> Value:
         case Let(Variable(name), e1, e2):
             v1 = eval(e1, environment)
             return eval(e2, environment | {name: v1})
+        case Var(name, value):
+            for variable in variable_list:
+                if variable.name == name:
+                    return variable.value
+            raise InvalidProgram("reference before assignment")
         case BinOp("+", left, right):
             return eval(left, environment) + eval(right, environment)
         case BinOp("-", left, right):
@@ -324,15 +364,15 @@ def eval(program: AST, environment: Mapping[str, Value] = None) -> Value:
             return eval(left, environment) < eval(right, environment)
         case BinOp("==", left, right):
             return eval(left, environment) == eval(right, environment)
-        case BinOp("%",left,right):
-            return eval(left)%eval(right)
+        case BinOp("%", left, right):
+            return eval(left) % eval(right)
         case If(cond, true_branch, false_branch):
             if eval(cond, environment):
                 return eval(true_branch, environment)
             else:
                 return eval(false_branch, environment)
-        case BinOp("^",left,right):
-            return eval(left)**eval(right)
+        case BinOp("^", left, right):
+            return eval(left) ** eval(right)
         case BinOp("!=", left, right):
             return eval(left, environment) != eval(right, environment)
         case BinOp("<=", left, right):
@@ -342,23 +382,24 @@ def eval(program: AST, environment: Mapping[str, Value] = None) -> Value:
         case BinOp("=", left, right):
             right_eval = eval(right)
             match left:
-                case Variable(name):
-                    left.name = right_eval
-                    return
-                case BoolLiteral(value):
+                case Var(name, value):
                     left.value = right_eval
-                    return
-                case NumLiteral(value):
-                    left.value = right_eval
-                    return
-            raise InvalidProgram()
+                    flag = 1
+                    for var in variable_list:
+                        if var.name == left.name:
+                            var.value = left.value
+                            flag = 0
+                    if flag:
+                        variable_list.append(left)
+                case _:
+                    raise InvalidProgram()
         # adding case for print statement
         case Print(exp):
             value = eval(exp, environment)
             print(value)
             return value
-
-    raise InvalidProgram()
+        case _:
+            raise InvalidProgram()
 
 
 def boolify(s: AST):
@@ -419,19 +460,21 @@ class Parser:
                 return NumLiteral(value)
             case Identifier(name):
                 self.advance()
-                return Variable(name)
+                return Var(name=name)
             case Bool(value):
                 self.advance()
                 return BoolLiteral(value)
-    
+            case Paranthesis(paran):
+                return self.parse_paran()
+
     def parse_exp(self):
-        left=self.parse_atom()
+        left = self.parse_atom()
         while True:
             match self.current_token:
-                case Operator(value) if value=="^":
+                case Operator(value) if value == "^":
                     self.advance()
-                    right=self.parse_atom()
-                    left=BinOp(value,left,right)
+                    right = self.parse_atom()
+                    left = BinOp(value, left, right)
                 case _:
                     break
         return left
@@ -462,35 +505,76 @@ class Parser:
 
     def parse_bool(self):
         left = self.parse_add()
-        while True:
-            match self.current_token:
-                case Operator(value) if value in "> < = == != <= >=".split():
-                    self.advance()
-                    right = self.parse_add()
-                    left = BinOp(value, left, right)
-                case _:
-                    break
+        match self.current_token:
+            case Operator(value) if value in "> < == != <= >=".split():
+                self.advance()
+                right = self.parse_add()
+                left = BinOp(value, left, right)
+        return left
+
+    def parse_assign(self):
+        left = self.parse_atom()
+        match self.current_token:
+            case Operator("="):
+                self.advance()
+                right = self.parse_bool()
+                left = BinOp("=", left, right)
         return left
 
     def parse_ifelse(self):
-        IF=self.parse_bool()
+        IF = self.parse_bool()
         self.advance()
-        COND=self.parse_bool()
-        THEN=self.parse_bool()
+        COND = self.parse_expr()
+        THEN = self.parse_bool()
         self.advance()
-        TRUE=self.parse_bool()
-        ELSE=self.parse_bool()
+        TRUE = self.parse_expr()
+        ELSE = self.parse_bool()
         self.advance()
-        FALSE=self.parse_bool()
-        return If(COND,TRUE,FALSE)
-    
+        FALSE = self.parse_expr()
+        return If(COND, TRUE, FALSE)
+
     def parse_expr(self):
         match self.current_token:
             case Keyword(word):
                 return self.parse_ifelse()
+            case Identifier(name):
+                return self.parse_assign()
             case _:
                 return self.parse_bool()
-            
-l=Lexer("2^3*7").tokenize()
-p=Parser(l).parse_expr()
-print(eval(p))
+
+    def parse_paran(self):
+        assert self.current_token == Paranthesis("(")
+        self.advance()
+        token_temp = []
+        num = 1
+        while True:
+            s = self.current_token
+            if s == Paranthesis("("):
+                num += 1
+            if s == Paranthesis(")"):
+                num = num - 1
+            if num == 0:
+                break
+            token_temp.append(s)
+            self.advance()
+        self.advance()
+        return Parser(token_temp).parse_expr()
+
+
+def splitter(tokens, masterlist):
+    if Delimiter(";") not in tokens:
+        if len(tokens) > 0:
+            masterlist.append(tokens)
+    else:
+        masterlist.append(tokens[: tokens.index(Delimiter(";"))])
+        splitter(tokens[tokens.index(Delimiter(";")) + 1 :], masterlist)
+
+
+masterlist = []
+l = Lexer("a=4;a+a>9").tokenize()
+splitter(l, masterlist)
+for token in masterlist:
+    print(token)
+    print(Parser(token).parse_expr())
+    print(eval(Parser(token).parse_expr()))
+print(variable_list)
