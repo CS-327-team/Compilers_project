@@ -571,7 +571,7 @@ def splitter(tokens, masterlist):
         masterlist.append(tokens[: tokens.index(Delimiter(";"))])
         splitter(tokens[tokens.index(Delimiter(";")) + 1 :], masterlist)
 masterlist = []
-l = Lexer("a=True;a==False").tokenize()
+l = Lexer("a=True;a==5").tokenize()
 splitter(l, masterlist)
 for token in masterlist:
     print(token)
