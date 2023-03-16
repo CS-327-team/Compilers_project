@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from fractions import Fraction
-from typing import Union, Mapping, Literal
+from typing import Mapping,List
 
 digit_list = "1234567890"
 alphabet_list = "ABCDEFGHIJKLOMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
@@ -77,7 +77,7 @@ def convert_to_token(c):
         return Bool(c)
     elif c in ["=", ">", "<", "+", "-", "*", "/", "!=", "<=", ">=", "^", "%"]:
         return Operator(c)
-    elif c in "if then else end while do done".split():
+    elif c in "if then else end while do done for".split():
         return Keyword(c)
     return Identifier(c)
 
@@ -93,7 +93,7 @@ class TokenError(Exception):
 
 
 operations = ["=", ">", "<", "+", "-", "*", "/", "!=", "<=", ">=", "%", "^"]
-keywords = "if then else end while do done".split()
+keywords = "if then else end while do done print for from to".split()
 delimiters = ['"', ";"]
 
 
@@ -217,8 +217,7 @@ class BoolLiteral:
 # implementing the print function
 @dataclass
 class Print:
-    def __init__(self, exp: "AST"):
-        self.exp = exp
+    exp: "AST"
 
 
 @dataclass
@@ -226,11 +225,53 @@ class Let:
     var: "AST"
     e1: "AST"
     e2: "AST"
+@dataclass
+class LetMut:
+    var: 'AST'
+    e1: 'AST'
+    e2: 'AST'
 
+@dataclass
+class Put:
+    var: 'AST'
+    e1: 'AST'
 
-AST = NumLiteral | BinOp | Variable | Let | BoolLiteral | If | Var
+@dataclass
+class Get:
+    var: 'AST'
 
-Value = Fraction|bool
+@dataclass
+class Seq:
+    things: List['AST']
+
+@dataclass
+class LetFun:
+    name: 'AST'
+    params: List['AST']
+    body: 'AST'
+    expr: 'AST'
+
+@dataclass
+class FunCall:
+    fn: 'AST'
+    args: List['AST']
+
+@dataclass
+class ForLoop:
+    var: 'AST'
+    start: 'AST'
+    end: 'AST'
+    body: 'AST'
+
+AST = NumLiteral | BinOp | Variable | Let | LetMut | Put | Get | Seq | LetFun | FunCall | ForLoop
+
+@dataclass
+class FnObject:
+    params: List['AST']
+    body: 'AST'
+
+Value = Fraction | FnObject|bool
+
 
 
 class InvalidProgram(Exception):
@@ -330,13 +371,82 @@ def typeof(s: AST):
             if typeof(cond) != "type boolean":
                 raise TypeError("Invalid condition")
             return
+        case Print(exp):
+            return
     raise TypeError()
 
+class Environment:
+    envs: List
+
+    def __init__(self):
+        self.envs = [{}]
+
+    def enter_scope(self):
+        self.envs.append({})
+
+    def exit_scope(self):
+        assert self.envs
+        self.envs.pop()
+
+    def add(self, name, value):
+        assert name not in self.envs[-1]
+        self.envs[-1][name] = value
+
+    def get(self, name):
+        for env in reversed(self.envs):
+            if name in env:
+                return env[name].value
+        raise KeyError()
+
+    def update(self, name, value):
+        for env in reversed(self.envs):
+            if name in env:
+                env[name] = value
+                return env[name].value
+        self.add(name, value)
+        # raise KeyError()
+
+def resolve(program: AST, environment: Environment = None) -> AST:
+    if environment is None:
+        environment = Environment()
+
+    def resolve_(program: AST) -> AST:
+        return resolve(program, environment)
+
+    match program:
+        case NumLiteral(_) as N:
+            return N
+        case Variable(name):
+            return environment.get(name)
+        case Let(Variable(name) as v, e1, e2):
+            re1 = resolve_(e1)
+            environment.enter_scope()
+            environment.add(name, v)
+            re2 = resolve_(e2)
+            environment.exit_scope()
+            return Let(v, re1, re2)
+        case LetFun(Variable(name) as v, params, body, expr):
+            environment.enter_scope()
+            environment.add(name, v)
+            environment.enter_scope()
+            for param in params:
+                environment.add(param.name, param)
+            rbody = resolve_(body)
+            environment.exit_scope()
+            rexpr = resolve_(expr)
+            environment.exit_scope()
+            return LetFun(v, params, rbody, rexpr)
+        case FunCall(fn, args):
+            rfn = resolve_(fn)
+            rargs = []
+            for arg in args:
+                rargs.append(resolve_(arg))
+            return FunCall(rfn, rargs)
 
 def eval(program: AST, environment: Mapping[str, Value] = None) -> Value:
-    typeof(program)
+    #typeof(program)
     if environment is None:
-        environment = {}
+        environment = Environment()
     match program:
         case NumLiteral(value):
             return value
@@ -395,6 +505,14 @@ def eval(program: AST, environment: Mapping[str, Value] = None) -> Value:
                         variable_list.append(left)
                 case _:
                     raise InvalidProgram()
+        case ForLoop(var, start, end, body):
+            start_val = eval(start)
+            end_val = eval(end)
+            for j in range(int(start_val), int(end_val)+1):
+                eval(BinOp("=",var,NumLiteral(Fraction(j))))
+                eval(body)
+            return
+        
         # adding case for print statement
         case Print(exp):
             value = eval(exp, environment)
@@ -534,11 +652,36 @@ class Parser:
         self.advance()
         FALSE = self.parse_expr()
         return If(COND, TRUE, FALSE)
+    
+    def parse_print(self):
+        self.advance()
+        return Print(self.parse_paran())
+    
+    def parse_loop(self):
+        self.advance()
+        var=Var(name=self.current_token.word,value=None)
+        self.advance()
+        assert self.current_token==Keyword("from")
+        self.advance()
+        low=self.parse_atom()
+        assert self.current_token==Keyword("to")
+        self.advance()
+        high=self.parse_atom()
+        task=self.parse_paran()
+        return ForLoop(var,low,high,task)
+        
+        
 
     def parse_expr(self):
         match self.current_token:
             case Keyword(word):
-                return self.parse_ifelse()
+                match word:
+                    case "if":
+                        return self.parse_ifelse()
+                    case "print":
+                        return self.parse_print()
+                    case "for":
+                        return self.parse_loop()
             case Identifier(name):
                 return self.parse_assign()
             case _:
@@ -571,10 +714,9 @@ def splitter(tokens, masterlist):
         masterlist.append(tokens[: tokens.index(Delimiter(";"))])
         splitter(tokens[tokens.index(Delimiter(";")) + 1 :], masterlist)
 masterlist = []
-l = Lexer("a=True;a==5").tokenize()
+s=input()
+text=open(s).read()
+l = Lexer(text).tokenize()
 splitter(l, masterlist)
 for token in masterlist:
-    print(token)
-    print(Parser(token).parse_expr())
-    print(eval(Parser(token).parse_expr()))
-print(variable_list)
+    eval(Parser(token).parse_expr())
