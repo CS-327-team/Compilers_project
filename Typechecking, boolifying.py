@@ -230,7 +230,7 @@ class Let:
 
 AST = NumLiteral | BinOp | Variable | Let | BoolLiteral | If | Var
 
-Value = Fraction
+Value = Fraction|bool
 
 
 class InvalidProgram(Exception):

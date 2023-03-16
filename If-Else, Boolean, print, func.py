@@ -62,7 +62,7 @@ class Function:
 
 AST = NumLiteral | BinOp | Variable | If | BoolLiteral | Print | Function
 
-Value = [Fraction, bool]       # updated Value, for BoolLiteral
+Value = Fraction|bool       # updated Value, for BoolLiteral
 
 class InvalidProgram(Exception):
     pass
