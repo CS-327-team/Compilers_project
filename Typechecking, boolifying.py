@@ -1,9 +1,10 @@
 from dataclasses import dataclass
 from fractions import Fraction
-from typing import Union, Mapping, Literal
+from typing import Mapping, List
 
 digit_list = "1234567890"
 alphabet_list = "ABCDEFGHIJKLOMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+variable_list = []
 
 
 @dataclass
@@ -53,7 +54,17 @@ class Operator:
     operator: str
 
 
-Token = Num | Bool | Keyword | Identifier | Operator
+@dataclass
+class Paranthesis:
+    paran: str
+
+
+@dataclass
+class Delimiter:
+    delim: str
+
+
+Token = Num | Bool | Keyword | Identifier | Operator | Paranthesis | Delimiter
 
 
 @dataclass
@@ -64,9 +75,9 @@ class EndOfTokens(Exception):
 def convert_to_token(c):
     if c == "True" or c == "False":
         return Bool(c)
-    elif c in ["=", ">", "<", "+", "-", "*", "/", "!=", "<=", ">="]:
+    elif c in ["=", ">", "<", "+", "-", "*", "/", "!=", "<=", ">=", "^", "%"]:
         return Operator(c)
-    elif c in "if then else end while do done".split():
+    elif c in "if then else end while do done for".split():
         return Keyword(c)
     return Identifier(c)
 
@@ -81,8 +92,9 @@ class TokenError(Exception):
     pass
 
 
-operations = ["=", ">", "<", "+", "-", "*", "/", "!=", "<=", ">="]
-keywords = "if then else end while do done".split()
+operations = ["=", ">", "<", "+", "-", "*", "/", "!=", "<=", ">=", "%", "^"]
+keywords = "if then else end while do done print for from to".split()
+delimiters = ['"', ";"]
 
 
 class Lexer:
@@ -105,7 +117,7 @@ class Lexer:
         tokens = []
         while self.current_char != None:
             match self.current_char:
-                case op if op in ["+", "-", "*", "/"]:
+                case op if op in ["+", "-", "*", "/", "%", "^"]:
                     tokens.append(Operator(op))
                     self.advance()
                 case op if op in ["!", "=", ">", "<"]:
@@ -133,10 +145,30 @@ class Lexer:
                     tokens.append(
                         Keyword(temp_str)
                     ) if temp_str in keywords else tokens.append(
-                        Bool(temp_str)
+                        Bool(True if temp_str == "True" else False)
                     ) if temp_str in "True False".split() else tokens.append(
                         Identifier(temp_str)
                     )
+                case "{":
+                    temp=""
+                    num=1
+                    self.advance()
+                    while num>0:
+                        if self.current_char=="{":
+                            num+=1
+                        if self.current_char=="}":
+                            num-=1
+                        if type(self.current_char)==str:
+                            temp+=self.current_char
+                        self.advance()
+                    tokens.append(Lexer(temp[:-1]).tokenize())
+                case s if s in "()}{":
+                    tokens.append(Paranthesis(s))
+                    self.advance()
+
+                case s if s in delimiters:
+                    tokens.append(Delimiter(s))
+                    self.advance()
                 case _:
                     raise TypeError()
         return tokens
@@ -170,8 +202,14 @@ class Variable:
         elif end_index.value > len(self.name):
             raise IndexError()
         else:
-            string_slice = self.name[start_index.value:end_index.value]
+            string_slice = self.name[start_index.value : end_index.value]
             return Variable(string_slice)
+
+
+@dataclass
+class Var:
+    name: str
+    value: str | int | bool = None
 
 
 @dataclass
@@ -193,8 +231,7 @@ class BoolLiteral:
 # implementing the print function
 @dataclass
 class Print:
-    def __init__(self, exp: "AST"):
-        self.exp = exp
+    exp: "AST"
 
 
 @dataclass
@@ -204,9 +241,78 @@ class Let:
     e2: "AST"
 
 
-AST = NumLiteral | BinOp | Variable | Let | BoolLiteral | If
+@dataclass
+class LetMut:
+    var: "AST"
+    e1: "AST"
+    e2: "AST"
 
-Value = Fraction
+
+@dataclass
+class Put:
+    var: "AST"
+    e1: "AST"
+
+
+@dataclass
+class Get:
+    var: "AST"
+
+
+@dataclass
+class Seq:
+    things: List["AST"]
+
+
+@dataclass
+class LetFun:
+    name: "AST"
+    params: List["AST"]
+    body: "AST"
+    expr: "AST"
+
+
+@dataclass
+class FunCall:
+    fn: "AST"
+    args: List["AST"]
+
+
+@dataclass
+class ForLoop:
+    var: "AST"
+    start: "AST"
+    end: "AST"
+    body: "AST"
+
+@dataclass
+class WhileLoop:
+    cond:bool
+    task:List
+
+
+AST = (
+    NumLiteral
+    | BinOp
+    | Variable
+    | Let
+    | LetMut
+    | Put
+    | Get
+    | Seq
+    | LetFun
+    | FunCall
+    | ForLoop
+)
+
+
+@dataclass
+class FnObject:
+    params: List["AST"]
+    body: "AST"
+
+
+Value = Fraction | FnObject | bool
 
 
 class InvalidProgram(Exception):
@@ -221,6 +327,18 @@ def typeof(s: AST):
             return "type Fraction"
         case BoolLiteral(value):
             return "type boolean"
+        case Var(name, value):
+            flag = 1
+            for var in variable_list:
+                if var.name == name:
+                    flag = 0
+                    return (
+                        "type boolean" * (type(var.value) == bool)
+                        + "type string" * (type(var.value) == str)
+                        + "type Fraction" * (type(var.value) == Fraction)
+                    )
+            if flag:
+                return InvalidProgram("reference before assignment")
         case BinOp("+", left, right):
             if typeof(left) != typeof(right):
                 return TypeError()
@@ -229,6 +347,16 @@ def typeof(s: AST):
             else:
                 return typeof(left)
         case BinOp("-", left, right):
+            if typeof(left) != "type Fraction" or typeof(right) != "type Fraction":
+                raise TypeError()
+            else:
+                return "type Fraction"
+        case BinOp("%", left, right):
+            if typeof(left) == "type Fraction" and typeof(right) == "type Fraction":
+                return "type Fraction"
+            else:
+                raise TypeError()
+        case BinOp("^", left, right):
             if typeof(left) != "type Fraction" or typeof(right) != "type Fraction":
                 raise TypeError()
             else:
@@ -274,22 +402,99 @@ def typeof(s: AST):
             else:
                 raise TypeError()
         case BinOp("=", left, right):
-            if typeof(left) == typeof(right):
+            flag = 1
+            for var in variable_list:
+                if var.name == left.name:
+                    flag = 0
+                    if type(var.value) == type(eval(right)):
+                        return
+            if flag:
                 return
-            else:
-                raise TypeError()
-        
-        case If(cond,true_branch,false_branch):
-            if typeof(cond)!="type boolean":
-                raise TypeError
+            raise TypeError("variables cannot change type")
+
+        case If(cond, true_branch, false_branch):
+            if typeof(cond) != "type boolean":
+                raise TypeError("Invalid condition")
+            return
+        case Print(exp):
             return
     raise TypeError()
 
 
-def eval(program: AST, environment: Mapping[str, Value] = None) -> Value:
-    typeof(program)
+class Environment:
+    envs: List
+
+    def __init__(self):
+        self.envs = [{}]
+
+    def enter_scope(self):
+        self.envs.append({})
+
+    def exit_scope(self):
+        assert self.envs
+        self.envs.pop()
+
+    def add(self, name, value):
+        assert name not in self.envs[-1]
+        self.envs[-1][name] = value
+
+    def get(self, name):
+        for env in reversed(self.envs):
+            if name in env:
+                return env[name].value
+        raise KeyError()
+
+    def update(self, name, value):
+        for env in reversed(self.envs):
+            if name in env:
+                env[name] = value
+                return env[name].value
+        self.add(name, value)
+        # raise KeyError()
+
+
+def resolve(program: AST, environment: Environment = None) -> AST:
     if environment is None:
-        environment = {}
+        environment = Environment()
+
+    def resolve_(program: AST) -> AST:
+        return resolve(program, environment)
+
+    match program:
+        case NumLiteral(_) as N:
+            return N
+        case Variable(name):
+            return environment.get(name)
+        case Let(Variable(name) as v, e1, e2):
+            re1 = resolve_(e1)
+            environment.enter_scope()
+            environment.add(name, v)
+            re2 = resolve_(e2)
+            environment.exit_scope()
+            return Let(v, re1, re2)
+        case LetFun(Variable(name) as v, params, body, expr):
+            environment.enter_scope()
+            environment.add(name, v)
+            environment.enter_scope()
+            for param in params:
+                environment.add(param.name, param)
+            rbody = resolve_(body)
+            environment.exit_scope()
+            rexpr = resolve_(expr)
+            environment.exit_scope()
+            return LetFun(v, params, rbody, rexpr)
+        case FunCall(fn, args):
+            rfn = resolve_(fn)
+            rargs = []
+            for arg in args:
+                rargs.append(resolve_(arg))
+            return FunCall(rfn, rargs)
+
+
+def eval(program: AST, environment: Mapping[str, Value] = None) -> Value:
+    # typeof(program)
+    if environment is None:
+        environment = Environment()
     match program:
         case NumLiteral(value):
             return value
@@ -300,6 +505,11 @@ def eval(program: AST, environment: Mapping[str, Value] = None) -> Value:
         case Let(Variable(name), e1, e2):
             v1 = eval(e1, environment)
             return eval(e2, environment | {name: v1})
+        case Var(name, value):
+            for variable in variable_list:
+                if variable.name == name:
+                    return variable.value
+            raise InvalidProgram("reference before assignment")
         case BinOp("+", left, right):
             return eval(left, environment) + eval(right, environment)
         case BinOp("-", left, right):
@@ -314,11 +524,15 @@ def eval(program: AST, environment: Mapping[str, Value] = None) -> Value:
             return eval(left, environment) < eval(right, environment)
         case BinOp("==", left, right):
             return eval(left, environment) == eval(right, environment)
+        case BinOp("%", left, right):
+            return eval(left) % eval(right)
         case If(cond, true_branch, false_branch):
             if eval(cond, environment):
                 return eval(true_branch, environment)
             else:
                 return eval(false_branch, environment)
+        case BinOp("^", left, right):
+            return eval(left) ** eval(right)
         case BinOp("!=", left, right):
             return eval(left, environment) != eval(right, environment)
         case BinOp("<=", left, right):
@@ -328,23 +542,38 @@ def eval(program: AST, environment: Mapping[str, Value] = None) -> Value:
         case BinOp("=", left, right):
             right_eval = eval(right)
             match left:
-                case Variable(name):
-                    left.name = right_eval
-                    return
-                case BoolLiteral(value):
+                case Var(name, value):
                     left.value = right_eval
-                    return
-                case NumLiteral(value):
-                    left.value = right_eval
-                    return
-            raise InvalidProgram()
+                    flag = 1
+                    for var in variable_list:
+                        if var.name == left.name:
+                            var.value = left.value
+                            flag = 0
+                    if flag:
+                        variable_list.append(left)
+                case _:
+                    raise InvalidProgram()
+        case ForLoop(var, start, end, body):
+            start_val = eval(start)
+            end_val = eval(end)
+            for j in range(int(start_val), int(end_val) + 1):
+                eval(BinOp("=", var, NumLiteral(Fraction(j))))
+                for ast in body:
+                    eval(ast)
+        case WhileLoop(cond,task):
+            while eval(cond)==True:
+                for tas in task:
+                    eval(tas)
+            return
+
         # adding case for print statement
         case Print(exp):
             value = eval(exp, environment)
             print(value)
             return value
-
-    raise InvalidProgram()
+        case _:
+            print(program)
+            raise InvalidProgram()
 
 
 def boolify(s: AST):
@@ -405,18 +634,36 @@ class Parser:
                 return NumLiteral(value)
             case Identifier(name):
                 self.advance()
-                return Variable(name)
+                return Var(name=name)
             case Bool(value):
                 self.advance()
                 return BoolLiteral(value)
+            case Paranthesis("("):
+                return self.parse_paran()
+            case Paranthesis("{"):
+                return self.parse_curly()
+        if type(self.current_token) == list:
+            return Parser(self.current_token).parse_expr()
 
-    def parse_mul(self):
+    def parse_exp(self):
         left = self.parse_atom()
         while True:
             match self.current_token:
-                case Operator(value) if value in "*/":
+                case Operator(value) if value == "^":
                     self.advance()
                     right = self.parse_atom()
+                    left = BinOp(value, left, right)
+                case _:
+                    break
+        return left
+
+    def parse_mul(self):
+        left = self.parse_exp()
+        while True:
+            match self.current_token:
+                case Operator(value) if value in "*/%":
+                    self.advance()
+                    right = self.parse_exp()
                     left = BinOp(value, left, right)
                 case _:
                     break
@@ -436,35 +683,110 @@ class Parser:
 
     def parse_bool(self):
         left = self.parse_add()
-        while True:
-            match self.current_token:
-                case Operator(value) if value in "> < = == != <= >=".split():
-                    self.advance()
-                    right = self.parse_add()
-                    left = BinOp(value, left, right)
-                case _:
-                    break
+        match self.current_token:
+            case Operator(value) if value in "> < == != <= >=".split():
+                self.advance()
+                right = self.parse_add()
+                left = BinOp(value, left, right)
+        return left
+
+    def parse_assign(self):
+        left = self.parse_bool()
+        match self.current_token:
+            case Operator("="):
+                self.advance()
+                right = self.parse_bool()
+                left = BinOp("=", left, right)
         return left
 
     def parse_ifelse(self):
-        IF=self.parse_bool()
+        IF = self.parse_bool()
         self.advance()
-        COND=self.parse_bool()
-        THEN=self.parse_bool()
+        COND = self.parse_expr()
+        THEN = self.parse_bool()
         self.advance()
-        TRUE=self.parse_bool()
-        ELSE=self.parse_bool()
+        TRUE = self.parse_expr()
+        ELSE = self.parse_bool()
         self.advance()
-        FALSE=self.parse_bool()
-        return If(COND,TRUE,FALSE)
-    
+        FALSE = self.parse_expr()
+        return If(COND, TRUE, FALSE)
+
+    def parse_print(self):
+        self.advance()
+        return Print(self.parse_paran())
+
+    def parse_loop(self):
+        self.advance()
+        var = Var(name=self.current_token.word, value=None)
+        self.advance()
+        assert self.current_token == Keyword("from")
+        self.advance()
+        low = self.parse_atom()
+        assert self.current_token == Keyword("to")
+        self.advance()
+        high = self.parse_atom()
+        task = Parser(self.current_token).splitter()
+        return ForLoop(var, low, high, task)
+
     def parse_expr(self):
         match self.current_token:
             case Keyword(word):
-                return self.parse_ifelse()
+                match word:
+                    case "if":
+                        return self.parse_ifelse()
+                    case "print":
+                        return self.parse_print()
+                    case "for":
+                        return self.parse_loop()
+                    case "while":
+                        return self.parse_whileloop()
+            case Identifier(name):
+                return self.parse_assign()
             case _:
                 return self.parse_bool()
             
-l=Lexer("2+3==9").tokenize()
-p=Parser(l).parse_expr()
-print(eval(p))
+    def parse_whileloop(self):
+        self.advance()
+        cond=self.parse_bool()
+        task=Parser(self.current_token).splitter()
+        return WhileLoop(cond,task)
+
+    def parse_paran(self):
+        assert self.current_token == Paranthesis("(")
+        self.advance()
+        token_temp = []
+        num = 1
+        while True:
+            s = self.current_token
+            if s == Paranthesis("("):
+                num += 1
+            if s == Paranthesis(")"):
+                num = num - 1
+            if num == 0:
+                break
+            token_temp.append(s)
+            self.advance()
+        self.advance()
+        return Parser(token_temp).parse_expr()
+
+    def splitter(self):
+        ast = []
+        temp = self.tokens[:]
+        while len(temp) > 0:
+            ast.append(Parser(temp[: temp.index(Delimiter(";"))]).parse_expr())
+            temp = temp[temp.index(Delimiter(";")) + 1 :]
+        return ast
+
+    def main(self):
+        asts = self.splitter()
+        for ast in asts:
+            if type(ast)==list:
+                Parser(ast).main()
+            else:
+                eval(ast)
+
+
+s = input()
+text = open(s).read()
+l = Lexer(text).tokenize()
+Parser(l).main()

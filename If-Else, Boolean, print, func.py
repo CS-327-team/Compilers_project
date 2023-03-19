@@ -44,9 +44,9 @@ class Print:
 # implementing functions(with recurssion)
 @dataclass
 class Function:
-    params: List[str]
+    params: list[str]
     body: 'AST'
-
+                    
     def __call__(self, *args):   
         if len(args) != len(self.params):
             raise InvalidProgram("Incorrect number of arguments")
@@ -62,7 +62,7 @@ class Function:
 
 AST = NumLiteral | BinOp | Variable | If | BoolLiteral | Print | Function
 
-Value = [Fraction, bool]       # updated Value, for BoolLiteral
+Value = Fraction|bool       # updated Value, for BoolLiteral
 
 class InvalidProgram(Exception):
     pass
@@ -151,16 +151,63 @@ def test_print_eval():
     temp = StringIO()
     with redirect_stdout(temp):
         eval(to_print)
-    ans = temp.getvalue
+    ans = temp.getvalue()
     assert ans == "2\n"
 
 # testing the recursive functions
 def test_function_eval():
     # factorial example
-    f = Function(['n'],                 
+    f1 = Function(['n'],                 
                  If(BinOp("==", Variable('n'), NumLiteral(0)),   # if n == 0 return 1 
                     NumLiteral(1),
                     BinOp("*", Variable('n'), Function(['m'], BinOp("recursion", BinOp("-", Variable('m'), NumLiteral(1)))))))  
     # if n != 0, n is multiplied by f(n-1) -> recurssion 
 
-    assert eval(f(4)) == 24
+    assert eval(f1(0)) == 1
+    assert eval(f1(1)) == 1
+    assert eval(f1(2)) == 2
+    assert eval(f1(3)) == 6
+    assert eval(f1(4)) == 24
+    assert eval(f1(5)) == 120
+
+    # fibonacci example
+    f2 = Function(['n'],
+                 If(BinOp("==", Variable('n'), NumLiteral(0)),
+                    NumLiteral(0),
+                    If(BinOp("==", Variable('n'), NumLiteral(1)),
+                       NumLiteral(1),
+                       BinOp("+",
+                             Function([], If(BinOp("==", Variable('n'), NumLiteral(2)),
+                                              NumLiteral(1),
+                                              BinOp("+",
+                                                    Function(['n'], BinOp("-", Variable('n'), NumLiteral(1))),
+                                                    Function(['n'], BinOp("-", Variable('n'), NumLiteral(2)))))),
+                             NumLiteral(0)))))
+    
+    assert eval(f2(0)) == 0
+    assert eval(f2(1)) == 1
+    assert eval(f2(2)) == 1
+    assert eval(f2(3)) == 2
+    assert eval(f2(4)) == 3
+    assert eval(f2(5)) == 5
+
+    # even fibonacci example
+    f3 = Function(['n'],
+                 If(BinOp("==", Variable('n'), NumLiteral(0)),
+                    NumLiteral(1),
+                    If(BinOp("==", Variable('n'), NumLiteral(1)),
+                       NumLiteral(2),
+                       BinOp("+",
+                             Function([], If(BinOp("==", Variable('n'), NumLiteral(2)),
+                                              NumLiteral(1),
+                                              BinOp("+",
+                                                    Function(['n'], BinOp("-", Variable('n'), NumLiteral(1))),
+                                                    Function(['n'], BinOp("-", Variable('n'), NumLiteral(2)))))),
+                             NumLiteral(0)))))
+    
+    assert eval(f3(0)) == 1
+    assert eval(f3(1)) == 2
+    assert eval(f3(2)) == 3
+    assert eval(f3(3)) == 5
+    assert eval(f3(4)) == 8
+    assert eval(f3(5)) == 13                
