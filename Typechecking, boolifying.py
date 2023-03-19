@@ -149,7 +149,7 @@ class Lexer:
                     ) if temp_str in "True False".split() else tokens.append(
                         Identifier(temp_str)
                     )
-                case s if s in "()":
+                case s if s in "()}{":
                     tokens.append(Paranthesis(s))
                     self.advance()
                 case s if s in delimiters:
@@ -584,8 +584,10 @@ class Parser:
             case Bool(value):
                 self.advance()
                 return BoolLiteral(value)
-            case Paranthesis(paran):
+            case Paranthesis("("):
                 return self.parse_paran()
+            case Paranthesis("{"):
+                return self.parse_curly()
 
     def parse_exp(self):
         left = self.parse_atom()
@@ -667,7 +669,7 @@ class Parser:
         assert self.current_token==Keyword("to")
         self.advance()
         high=self.parse_atom()
-        task=self.parse_paran()
+        task=self.parse_curly()
         return ForLoop(var,low,high,task)
         
         
@@ -686,6 +688,24 @@ class Parser:
                 return self.parse_assign()
             case _:
                 return self.parse_bool()
+            
+    def parse_curly(self):
+        assert self.current_token == Paranthesis("{")
+        self.advance()
+        token_temp = []
+        num = 1
+        while True:
+            s = self.current_token
+            if s == Paranthesis("{"):
+                num += 1
+            if s == Paranthesis("}"):
+                num = num - 1
+            if num == 0:
+                break
+            token_temp.append(s)
+            self.advance()
+        self.advance()
+        return Parser(token_temp).parse_expr()
 
     def parse_paran(self):
         assert self.current_token == Paranthesis("(")
