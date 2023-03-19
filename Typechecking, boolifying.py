@@ -285,6 +285,11 @@ class ForLoop:
     end: "AST"
     body: "AST"
 
+@dataclass
+class WhileLoop:
+    cond:bool
+    task:List
+
 
 AST = (
     NumLiteral
@@ -555,6 +560,10 @@ def eval(program: AST, environment: Mapping[str, Value] = None) -> Value:
                 eval(BinOp("=", var, NumLiteral(Fraction(j))))
                 for ast in body:
                     eval(ast)
+        case WhileLoop(cond,task):
+            while eval(cond)==True:
+                for tas in task:
+                    eval(tas)
             return
 
         # adding case for print statement
@@ -563,6 +572,7 @@ def eval(program: AST, environment: Mapping[str, Value] = None) -> Value:
             print(value)
             return value
         case _:
+            print(program)
             raise InvalidProgram()
 
 
@@ -728,28 +738,18 @@ class Parser:
                         return self.parse_print()
                     case "for":
                         return self.parse_loop()
+                    case "while":
+                        return self.parse_whileloop()
             case Identifier(name):
                 return self.parse_assign()
             case _:
                 return self.parse_bool()
-
-    def parse_curly(self):
-        assert self.current_token == Paranthesis("{")
+            
+    def parse_whileloop(self):
         self.advance()
-        token_temp = []
-        num = 1
-        while True:
-            s = self.current_token
-            if s == Paranthesis("{"):
-                num += 1
-            if s == Paranthesis("}"):
-                num = num - 1
-            if num == 0:
-                break
-            token_temp.append(s)
-            self.advance()
-        self.advance()
-        return Parser(token_temp).parse_expr()
+        cond=self.parse_bool()
+        task=Parser(self.current_token).splitter()
+        return WhileLoop(cond,task)
 
     def parse_paran(self):
         assert self.current_token == Paranthesis("(")
@@ -774,7 +774,6 @@ class Parser:
         temp = self.tokens[:]
         while len(temp) > 0:
             ast.append(Parser(temp[: temp.index(Delimiter(";"))]).parse_expr())
-            print(ast)
             temp = temp[temp.index(Delimiter(";")) + 1 :]
         return ast
 
@@ -790,6 +789,4 @@ class Parser:
 s = input()
 text = open(s).read()
 l = Lexer(text).tokenize()
-for token in l:
-    print(token)
 Parser(l).main()
