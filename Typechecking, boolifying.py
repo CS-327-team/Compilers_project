@@ -149,6 +149,19 @@ class Lexer:
                     ) if temp_str in "True False".split() else tokens.append(
                         Identifier(temp_str)
                     )
+                case "{":
+                    temp=""
+                    num=1
+                    self.advance()
+                    while num>0:
+                        if self.current_char=="{":
+                            num+=1
+                        if self.current_char=="}":
+                            num-=1
+                        if type(self.current_char)==str:
+                            temp+=self.current_char
+                        self.advance()
+                    tokens.append(Lexer(temp[:-1]).tokenize())
                 case s if s in "()}{":
                     tokens.append(Paranthesis(s))
                     self.advance()
@@ -540,7 +553,8 @@ def eval(program: AST, environment: Mapping[str, Value] = None) -> Value:
             end_val = eval(end)
             for j in range(int(start_val), int(end_val) + 1):
                 eval(BinOp("=", var, NumLiteral(Fraction(j))))
-                eval(body)
+                for ast in body:
+                    eval(ast)
             return
 
         # adding case for print statement
@@ -701,7 +715,7 @@ class Parser:
         assert self.current_token == Keyword("to")
         self.advance()
         high = self.parse_atom()
-        task = self.parse_curly()
+        task = Parser(self.current_token).splitter()
         return ForLoop(var, low, high, task)
 
     def parse_expr(self):
@@ -760,16 +774,22 @@ class Parser:
         temp = self.tokens[:]
         while len(temp) > 0:
             ast.append(Parser(temp[: temp.index(Delimiter(";"))]).parse_expr())
+            print(ast)
             temp = temp[temp.index(Delimiter(";")) + 1 :]
         return ast
 
     def main(self):
         asts = self.splitter()
         for ast in asts:
-            eval(ast)
+            if type(ast)==list:
+                Parser(ast).main()
+            else:
+                eval(ast)
 
 
 s = input()
 text = open(s).read()
 l = Lexer(text).tokenize()
+for token in l:
+    print(token)
 Parser(l).main()
