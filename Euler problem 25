@@ -1,0 +1,10 @@
+fib0=0;
+fib1=1;
+index=1;
+while fib1/10^999<1{
+temp=fib0+fib1;
+fib0=fib1;
+fib1=temp;
+index=index+1;
+};
+print(index);
