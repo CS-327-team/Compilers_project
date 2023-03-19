@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from fractions import Fraction
-from typing import Mapping,List
+from typing import Mapping, List
 
 digit_list = "1234567890"
 alphabet_list = "ABCDEFGHIJKLOMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
@@ -145,13 +145,14 @@ class Lexer:
                     tokens.append(
                         Keyword(temp_str)
                     ) if temp_str in keywords else tokens.append(
-                        Bool(True if temp_str=='True' else False)
+                        Bool(True if temp_str == "True" else False)
                     ) if temp_str in "True False".split() else tokens.append(
                         Identifier(temp_str)
                     )
                 case s if s in "()}{":
                     tokens.append(Paranthesis(s))
                     self.advance()
+
                 case s if s in delimiters:
                     tokens.append(Delimiter(s))
                     self.advance()
@@ -225,53 +226,75 @@ class Let:
     var: "AST"
     e1: "AST"
     e2: "AST"
+
+
 @dataclass
 class LetMut:
-    var: 'AST'
-    e1: 'AST'
-    e2: 'AST'
+    var: "AST"
+    e1: "AST"
+    e2: "AST"
+
 
 @dataclass
 class Put:
-    var: 'AST'
-    e1: 'AST'
+    var: "AST"
+    e1: "AST"
+
 
 @dataclass
 class Get:
-    var: 'AST'
+    var: "AST"
+
 
 @dataclass
 class Seq:
-    things: List['AST']
+    things: List["AST"]
+
 
 @dataclass
 class LetFun:
-    name: 'AST'
-    params: List['AST']
-    body: 'AST'
-    expr: 'AST'
+    name: "AST"
+    params: List["AST"]
+    body: "AST"
+    expr: "AST"
+
 
 @dataclass
 class FunCall:
-    fn: 'AST'
-    args: List['AST']
+    fn: "AST"
+    args: List["AST"]
+
 
 @dataclass
 class ForLoop:
-    var: 'AST'
-    start: 'AST'
-    end: 'AST'
-    body: 'AST'
+    var: "AST"
+    start: "AST"
+    end: "AST"
+    body: "AST"
 
-AST = NumLiteral | BinOp | Variable | Let | LetMut | Put | Get | Seq | LetFun | FunCall | ForLoop
+
+AST = (
+    NumLiteral
+    | BinOp
+    | Variable
+    | Let
+    | LetMut
+    | Put
+    | Get
+    | Seq
+    | LetFun
+    | FunCall
+    | ForLoop
+)
+
 
 @dataclass
 class FnObject:
-    params: List['AST']
-    body: 'AST'
+    params: List["AST"]
+    body: "AST"
 
-Value = Fraction | FnObject|bool
 
+Value = Fraction | FnObject | bool
 
 
 class InvalidProgram(Exception):
@@ -287,11 +310,15 @@ def typeof(s: AST):
         case BoolLiteral(value):
             return "type boolean"
         case Var(name, value):
-            flag=1
+            flag = 1
             for var in variable_list:
-                if var.name==name:
-                    flag=0
-                    return "type boolean"*(type(var.value)==bool)+"type string"*(type(var.value)==str)+"type Fraction"*(type(var.value)==Fraction)
+                if var.name == name:
+                    flag = 0
+                    return (
+                        "type boolean" * (type(var.value) == bool)
+                        + "type string" * (type(var.value) == str)
+                        + "type Fraction" * (type(var.value) == Fraction)
+                    )
             if flag:
                 return InvalidProgram("reference before assignment")
         case BinOp("+", left, right):
@@ -375,6 +402,7 @@ def typeof(s: AST):
             return
     raise TypeError()
 
+
 class Environment:
     envs: List
 
@@ -405,6 +433,7 @@ class Environment:
                 return env[name].value
         self.add(name, value)
         # raise KeyError()
+
 
 def resolve(program: AST, environment: Environment = None) -> AST:
     if environment is None:
@@ -443,8 +472,9 @@ def resolve(program: AST, environment: Environment = None) -> AST:
                 rargs.append(resolve_(arg))
             return FunCall(rfn, rargs)
 
+
 def eval(program: AST, environment: Mapping[str, Value] = None) -> Value:
-    #typeof(program)
+    # typeof(program)
     if environment is None:
         environment = Environment()
     match program:
@@ -508,11 +538,11 @@ def eval(program: AST, environment: Mapping[str, Value] = None) -> Value:
         case ForLoop(var, start, end, body):
             start_val = eval(start)
             end_val = eval(end)
-            for j in range(int(start_val), int(end_val)+1):
-                eval(BinOp("=",var,NumLiteral(Fraction(j))))
+            for j in range(int(start_val), int(end_val) + 1):
+                eval(BinOp("=", var, NumLiteral(Fraction(j))))
                 eval(body)
             return
-        
+
         # adding case for print statement
         case Print(exp):
             value = eval(exp, environment)
@@ -588,6 +618,8 @@ class Parser:
                 return self.parse_paran()
             case Paranthesis("{"):
                 return self.parse_curly()
+        if type(self.current_token) == list:
+            return Parser(self.current_token).parse_expr()
 
     def parse_exp(self):
         left = self.parse_atom()
@@ -626,7 +658,7 @@ class Parser:
         return left
 
     def parse_bool(self):
-        left=self.parse_add()
+        left = self.parse_add()
         match self.current_token:
             case Operator(value) if value in "> < == != <= >=".split():
                 self.advance()
@@ -654,25 +686,23 @@ class Parser:
         self.advance()
         FALSE = self.parse_expr()
         return If(COND, TRUE, FALSE)
-    
+
     def parse_print(self):
         self.advance()
         return Print(self.parse_paran())
-    
+
     def parse_loop(self):
         self.advance()
-        var=Var(name=self.current_token.word,value=None)
+        var = Var(name=self.current_token.word, value=None)
         self.advance()
-        assert self.current_token==Keyword("from")
+        assert self.current_token == Keyword("from")
         self.advance()
-        low=self.parse_atom()
-        assert self.current_token==Keyword("to")
+        low = self.parse_atom()
+        assert self.current_token == Keyword("to")
         self.advance()
-        high=self.parse_atom()
-        task=self.parse_curly()
-        return ForLoop(var,low,high,task)
-        
-        
+        high = self.parse_atom()
+        task = self.parse_curly()
+        return ForLoop(var, low, high, task)
 
     def parse_expr(self):
         match self.current_token:
@@ -688,7 +718,7 @@ class Parser:
                 return self.parse_assign()
             case _:
                 return self.parse_bool()
-            
+
     def parse_curly(self):
         assert self.current_token == Paranthesis("{")
         self.advance()
@@ -725,18 +755,21 @@ class Parser:
         self.advance()
         return Parser(token_temp).parse_expr()
 
+    def splitter(self):
+        ast = []
+        temp = self.tokens[:]
+        while len(temp) > 0:
+            ast.append(Parser(temp[: temp.index(Delimiter(";"))]).parse_expr())
+            temp = temp[temp.index(Delimiter(";")) + 1 :]
+        return ast
 
-def splitter(tokens, masterlist):
-    if Delimiter(";") not in tokens:
-        if len(tokens) > 0:
-            masterlist.append(tokens)
-    else:
-        masterlist.append(tokens[: tokens.index(Delimiter(";"))])
-        splitter(tokens[tokens.index(Delimiter(";")) + 1 :], masterlist)
-masterlist = []
-s=input()
-text=open(s).read()
+    def main(self):
+        asts = self.splitter()
+        for ast in asts:
+            eval(ast)
+
+
+s = input()
+text = open(s).read()
 l = Lexer(text).tokenize()
-splitter(l, masterlist)
-for token in masterlist:
-    eval(Parser(token).parse_expr())
+Parser(l).main()
