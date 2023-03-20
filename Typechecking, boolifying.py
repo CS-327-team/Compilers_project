@@ -553,9 +553,13 @@ def eval(program: AST, environment: Mapping[str, Value] = None) -> Value:
             return eval(left) % eval(right)
         case If(cond, true_branch, false_branch):
             if eval(cond, environment):
-                return eval(true_branch, environment)
+                for task in true_branch:
+                    eval(task,environment)
+                #return eval(true_branch, environment)
             else:
-                return eval(false_branch, environment)
+                for task in false_branch:
+                    eval(task,environment)
+                #return eval(false_branch, environment)
         case BinOp("^", left, right):
             return eval(left) ** eval(right)
         case BinOp("!=", left, right):
@@ -597,7 +601,6 @@ def eval(program: AST, environment: Mapping[str, Value] = None) -> Value:
             print(value)
             return value
         case _:
-            print(program)
             raise InvalidProgram()
 
 
@@ -728,10 +731,11 @@ class Parser:
         COND = self.parse_expr()
         THEN = self.parse_bool()
         self.advance()
-        TRUE = self.parse_expr()
+        TRUE = Parser(self.current_token).splitter()
+        self.advance()
         ELSE = self.parse_bool()
         self.advance()
-        FALSE = self.parse_expr()
+        FALSE = Parser(self.current_token).splitter()
         return If(COND, TRUE, FALSE)
 
     def parse_print(self):
@@ -819,3 +823,5 @@ s = input()
 text = open(s).read()
 l = Lexer(text).tokenize()
 Parser(l).main()
+#lis=[Identifier(word='sum'), Operator(operator='='), Identifier(word='sum'), Operator(operator='+'), Num(n=1), Delimiter(delim=';'), Identifier(word='sum'), Operator(operator='='), Identifier(word='sum'), Operator(operator='/'), Num(n=2), Delimiter(delim=';')]
+#print(Parser(lis).splitter())
