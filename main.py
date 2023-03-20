@@ -214,7 +214,7 @@ AST = (
     |WhileLoop
 )
 
-Value = Fraction | FnObject | bool | ForLoop
+Value = Fraction | FnObject | bool | ForLoop | Let
 
 
 class InvalidProgram(Exception):
