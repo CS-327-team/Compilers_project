@@ -180,6 +180,13 @@ class Var:
     value: str | int | bool = None
 
 @dataclass
+class ForLoop:
+    var: "AST"
+    start: "AST"
+    end: "AST"
+    body: "AST"
+
+@dataclass
 class WhileLoop:
     cond: bool
     task: List
@@ -199,7 +206,7 @@ AST = (
     |WhileLoop
 )
 
-Value = Fraction | FnObject | bool
+Value = Fraction | FnObject | bool | ForLoop
 
 
 class InvalidProgram(Exception):
@@ -306,6 +313,75 @@ def typeof(s: AST):
         case Print(exp):
             return
     raise TypeError()
+
+class Environment:
+    envs: List
+
+    def __init__(self):
+        self.envs = [{}]
+
+    def enter_scope(self):
+        self.envs.append({})
+
+    def exit_scope(self):
+        assert self.envs
+        self.envs.pop()
+
+    def add(self, name, value):
+        assert name not in self.envs[-1]
+        self.envs[-1][name] = value
+
+    def get(self, name):
+        for env in reversed(self.envs):
+            if name in env:
+                return env[name].value
+        raise KeyError()
+
+    def update(self, name, value):
+        for env in reversed(self.envs):
+            if name in env:
+                env[name] = value
+                return env[name].value
+        self.add(name, value)
+        # raise KeyError()
+
+def resolve(program: AST, environment: Environment = None) -> AST:
+    if environment is None:
+        environment = Environment()
+
+    def resolve_(program: AST) -> AST:
+        return resolve(program, environment)
+
+    match program:
+        case NumLiteral(_) as N:
+            return N
+        case Variable(name):
+            return environment.get(name)
+        case Let(Variable(name) as v, e1, e2):
+            re1 = resolve_(e1)
+            environment.enter_scope()
+            environment.add(name, v)
+            re2 = resolve_(e2)
+            environment.exit_scope()
+            return Let(v, re1, re2)
+        case LetFun(Variable(name) as v, params, body, expr):
+            environment.enter_scope()
+            environment.add(name, v)
+            environment.enter_scope()
+            for param in params:
+                environment.add(param.name, param)
+            rbody = resolve_(body)
+            environment.exit_scope()
+            rexpr = resolve_(expr)
+            environment.exit_scope()
+            return LetFun(v, params, rbody, rexpr)
+        case FunCall(fn, args):
+            rfn = resolve_(fn)
+            rargs = []
+            for arg in args:
+                rargs.append(resolve_(arg))
+            return FunCall(rfn, rargs)
+        
 
 def eval(program: AST, environment: Mapping[str, Value] = None) -> Value:
     # typeof(program)
@@ -556,6 +632,23 @@ class Parser:
                 Parser(ast).main()
             else:
                 eval(ast)
+
+def test_ForLoop():
+    # for loop that sums up the numbers from 1 to 5
+    e1 = Variable.make("sum")
+    e2 = Variable.make("i")
+    ast = ForLoop(
+        e2,
+        NumLiteral(1),
+        NumLiteral(5),
+        BinOp("=", e1, BinOp("*", e1, e2))
+    )
+    environment = Environment()
+    environment.add(e1, NumLiteral(1))
+    result = eval(ast, environment)
+    print(result)
+    # assert result == Fraction(120)
+
 
 
 s = input()
