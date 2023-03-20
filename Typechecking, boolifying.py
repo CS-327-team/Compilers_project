@@ -45,6 +45,10 @@ class Paranthesis:
 class Delimiter:
     delim: str
 
+@dataclass
+class String:
+    string:str
+
 
 Token = Num | Bool | Keyword | Identifier | Operator | Paranthesis | Delimiter
 
@@ -75,7 +79,7 @@ class TokenError(Exception):
 
 
 operations = ["=", ">", "<", "+", "-", "*", "/", "!=", "<=", ">=", "%", "^"]
-keywords = "if then else end while do done print for from to def".split()
+keywords = "if then else while print for from to def".split()
 delimiters = ['"', ";"]
 
 
@@ -144,9 +148,18 @@ class Lexer:
                             temp += self.current_char
                         self.advance()
                     tokens.append(Lexer(temp[:-1]).tokenize())
-                case s if s in "()}{":
+                case s if s in "()":
                     tokens.append(Paranthesis(s))
                     self.advance()
+
+                case "[":
+                    temp=""
+                    self.advance()
+                    while self.current_char!="]":
+                        temp+=self.current_char
+                        self.advance()
+                    self.advance()
+                    tokens.append(String(temp))
 
                 case s if s in delimiters:
                     tokens.append(Delimiter(s))
@@ -651,6 +664,8 @@ class Parser:
                 return BoolLiteral(value)
             case Paranthesis("("):
                 return self.parse_paran()
+            case String(string):
+                return Variable(string)
         if type(self.current_token) == list:
             return Parser(self.current_token).parse_expr()
 
