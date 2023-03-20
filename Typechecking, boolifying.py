@@ -821,5 +821,3 @@ s = input()
 text = open(s).read()
 l = Lexer(text).tokenize()
 Parser(l).main()
-#lis=[Identifier(word='sum'), Operator(operator='='), Identifier(word='sum'), Operator(operator='+'), Num(n=1), Delimiter(delim=';'), Identifier(word='sum'), Operator(operator='='), Identifier(word='sum'), Operator(operator='/'), Num(n=2), Delimiter(delim=';')]
-#print(Parser(lis).splitter())
