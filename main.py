@@ -192,12 +192,52 @@ class WhileLoop:
     task: List
 
 
+# Implementing If-Else statement
+@dataclass
+class If:
+  cond : 'AST'
+  true_branch : 'AST'
+  false_branch : 'AST'
+
+# Implementing the Boolean Type
+@dataclass
+class BoolLiteral:
+    value : bool
+    def __init__(self, value:bool):
+        self.value = value
+
+# implementing the print function
+@dataclass
+class Print:
+    exp: "AST"
+
+# implementing functions(with recurssion)
+@dataclass
+class Function:
+    params: list[str]
+    body: 'AST'
+                    
+    def __call__(self, *args):   
+        if len(args) != len(self.params):
+            raise InvalidProgram("Incorrect number of arguments")
+
+        local_env = dict()
+        for name, value in zip(self.params, args):
+            local_env[name] = value           # storing the parameters of the function and the local variables created
+
+         # the lambda function takes the arguments using *inner_args and calls itself using self
+        local_env['recursion'] = lambda *inner_args: self(*inner_args)   # implementing recurssion 
+
+        return eval(self.body, local_env)   # evaluates the body of the function  
+
+
 
 @dataclass
 class Let:
     var: "AST"
     e1: "AST"
     e2: "AST"
+
 
 AST = (
     NumLiteral
@@ -211,10 +251,16 @@ AST = (
     | LetFun
     | FunCall
     | ForLoop
-    |WhileLoop
+    | WhileLoop
 )
 
+
 Value = Fraction | FnObject | bool | ForLoop | Let
+
+@dataclass
+class FnObject:
+    params: List["AST"]
+    body: "AST"
 
 
 class InvalidProgram(Exception):
@@ -415,6 +461,12 @@ def eval(program: AST, environment: Mapping[str, Value] = None) -> Value:
             return eval(left, environment) * eval(right, environment)
         case BinOp("/", left, right):
             return eval(left, environment) / eval(right, environment)
+        case BinOp(">", left, right):
+            return eval(left, environment) > eval(right, environment)
+        case BinOp("<", left, right):
+            return eval(left, environment) < eval(right, environment)
+        case BinOp("==", left, right):
+            return eval(left, environment) == eval(right, environment)
         case BinOp("%", left, right):
             return eval(left) % eval(right)
         case If(cond, true_branch, false_branch):
@@ -428,6 +480,12 @@ def eval(program: AST, environment: Mapping[str, Value] = None) -> Value:
                 #return eval(false_branch, environment)
         case BinOp("^", left, right):
             return eval(left) ** eval(right)
+        case BinOp("!=", left, right):
+            return eval(left, environment) != eval(right, environment)
+        case BinOp("<=", left, right):
+            return eval(left, environment) <= eval(right, environment)
+        case BinOp(">=", left, right):
+            return eval(left, environment) >= eval(right, environment)
         case BinOp("=", left, right):
             right_eval = eval(right)
             match left:
@@ -454,6 +512,12 @@ def eval(program: AST, environment: Mapping[str, Value] = None) -> Value:
                 for tas in task:
                     eval(tas)
             return
+        
+        # adding case for print statement
+        case Print(exp):
+            value = eval(exp, environment)
+            print(value)
+            return value
         case _:
             raise InvalidProgram()
 def boolify(s: AST):
