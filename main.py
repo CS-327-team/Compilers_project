@@ -191,6 +191,7 @@ class WhileLoop:
     cond: bool
     task: List
 
+
 # Implementing If-Else statement
 @dataclass
 class If:
@@ -228,6 +229,15 @@ class Function:
         local_env['recursion'] = lambda *inner_args: self(*inner_args)   # implementing recurssion 
 
         return eval(self.body, local_env)   # evaluates the body of the function  
+
+
+
+@dataclass
+class Let:
+    var: "AST"
+    e1: "AST"
+    e2: "AST"
+
 
 AST = (
     NumLiteral
@@ -710,7 +720,21 @@ def test_ForLoop():
     print(result)
     # assert result == Fraction(120)
 
-
+def test_let_eval():
+    a = Variable("a")
+    e1 = NumLiteral(5)
+    e2 = BinOp("+", a, a)
+    e = Let(a, e1, e2)
+    assert eval(e) == 10
+    e = Let(a, e1, Let(a, e2, e2))
+    assert eval(e) == 20
+    e = Let(a, e1, BinOp("+", a, Let(a, e2, e2)))
+    assert eval(e) == 25
+    e = Let(a, e1, BinOp("+", Let(a, e2, e2), a))
+    assert eval(e) == 25
+    e3 = NumLiteral(6)
+    e = BinOp("+", Let(a, e1, e2), Let(a, e3, e2))
+    assert eval(e) == 22
 
 s = input()
 text = open(s).read()
