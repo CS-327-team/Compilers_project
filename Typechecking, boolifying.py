@@ -11,24 +11,6 @@ variable_list = []
 class EndOfStream(Exception):
     pass
 
-
-@dataclass
-class Stream:
-    string: str
-    position: int
-
-    def next_char(self):
-        if self.position >= len(self.string):
-            raise EndOfStream()
-        else:
-            self.position += 1
-            return self.string[self.position - 1]
-
-    def unget(self):
-        assert self.position > 0
-        self.position -= 1
-
-
 @dataclass
 class Num:
     n: int
@@ -328,6 +310,7 @@ AST = (
     | LetFun
     | FunCall
     | ForLoop
+    |WhileLoop
 )
 
 
