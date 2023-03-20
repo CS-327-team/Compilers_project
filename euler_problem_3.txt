@@ -1,6 +1,6 @@
 n=100;
 i=2;
 while i^2<=n{
-	if n%i==0 then n=n/i else i=i+1;
+	if n%i==0 then {n=n/i;} else {i=i+1;};
 };
 print(n);
