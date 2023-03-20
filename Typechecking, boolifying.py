@@ -79,7 +79,7 @@ class TokenError(Exception):
 
 
 operations = ["=", ">", "<", "+", "-", "*", "/", "!=", "<=", ">=", "%", "^"]
-keywords = "if then else end while do done print for from to def".split()
+keywords = "if then else while print for from to def".split()
 delimiters = ['"', ";"]
 
 
