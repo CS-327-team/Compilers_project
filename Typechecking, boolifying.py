@@ -93,7 +93,7 @@ class TokenError(Exception):
 
 
 operations = ["=", ">", "<", "+", "-", "*", "/", "!=", "<=", ">=", "%", "^"]
-keywords = "if then else end while do done print for from to".split()
+keywords = "if then else end while do done print for from to def".split()
 delimiters = ['"', ";"]
 
 
@@ -150,16 +150,16 @@ class Lexer:
                         Identifier(temp_str)
                     )
                 case "{":
-                    temp=""
-                    num=1
+                    temp = ""
+                    num = 1
                     self.advance()
-                    while num>0:
-                        if self.current_char=="{":
-                            num+=1
-                        if self.current_char=="}":
-                            num-=1
-                        if type(self.current_char)==str:
-                            temp+=self.current_char
+                    while num > 0:
+                        if self.current_char == "{":
+                            num += 1
+                        if self.current_char == "}":
+                            num -= 1
+                        if type(self.current_char) == str:
+                            temp += self.current_char
                         self.advance()
                     tokens.append(Lexer(temp[:-1]).tokenize())
                 case s if s in "()}{":
@@ -234,6 +234,30 @@ class Print:
     exp: "AST"
 
 
+# implementing functions(with recurssion)
+@dataclass
+class Function:
+    params: list[str]
+    body: "AST"
+
+    def __call__(self, *args):
+        if len(args) != len(self.params):
+            raise InvalidProgram("Incorrect number of arguments")
+
+        local_env = dict()
+        for name, value in zip(self.params, args):
+            local_env[
+                name
+            ] = value  # storing the parameters of the function and the local variables created
+
+        # the lambda function takes the arguments using *inner_args and calls itself using self
+        local_env["recursion"] = lambda *inner_args: self(
+            *inner_args
+        )  # implementing recurssion
+
+        return eval(self.body, local_env)  # evaluates the body of the function
+
+
 @dataclass
 class Let:
     var: "AST"
@@ -285,10 +309,11 @@ class ForLoop:
     end: "AST"
     body: "AST"
 
+
 @dataclass
 class WhileLoop:
-    cond:bool
-    task:List
+    cond: bool
+    task: List
 
 
 AST = (
@@ -528,9 +553,13 @@ def eval(program: AST, environment: Mapping[str, Value] = None) -> Value:
             return eval(left) % eval(right)
         case If(cond, true_branch, false_branch):
             if eval(cond, environment):
-                return eval(true_branch, environment)
+                for task in true_branch:
+                    eval(task,environment)
+                #return eval(true_branch, environment)
             else:
-                return eval(false_branch, environment)
+                for task in false_branch:
+                    eval(task,environment)
+                #return eval(false_branch, environment)
         case BinOp("^", left, right):
             return eval(left) ** eval(right)
         case BinOp("!=", left, right):
@@ -560,8 +589,8 @@ def eval(program: AST, environment: Mapping[str, Value] = None) -> Value:
                 eval(BinOp("=", var, NumLiteral(Fraction(j))))
                 for ast in body:
                     eval(ast)
-        case WhileLoop(cond,task):
-            while eval(cond)==True:
+        case WhileLoop(cond, task):
+            while eval(cond) == True:
                 for tas in task:
                     eval(tas)
             return
@@ -572,7 +601,6 @@ def eval(program: AST, environment: Mapping[str, Value] = None) -> Value:
             print(value)
             return value
         case _:
-            print(program)
             raise InvalidProgram()
 
 
@@ -640,8 +668,6 @@ class Parser:
                 return BoolLiteral(value)
             case Paranthesis("("):
                 return self.parse_paran()
-            case Paranthesis("{"):
-                return self.parse_curly()
         if type(self.current_token) == list:
             return Parser(self.current_token).parse_expr()
 
@@ -705,10 +731,11 @@ class Parser:
         COND = self.parse_expr()
         THEN = self.parse_bool()
         self.advance()
-        TRUE = self.parse_expr()
+        TRUE = Parser(self.current_token).splitter()
+        self.advance()
         ELSE = self.parse_bool()
         self.advance()
-        FALSE = self.parse_expr()
+        FALSE = Parser(self.current_token).splitter()
         return If(COND, TRUE, FALSE)
 
     def parse_print(self):
@@ -740,16 +767,22 @@ class Parser:
                         return self.parse_loop()
                     case "while":
                         return self.parse_whileloop()
+                    case "def":
+                        return self.parse_function()
             case Identifier(name):
                 return self.parse_assign()
             case _:
                 return self.parse_bool()
-            
+
+    def parse_function(self):
+        self.advance()
+        pass
+
     def parse_whileloop(self):
         self.advance()
-        cond=self.parse_bool()
-        task=Parser(self.current_token).splitter()
-        return WhileLoop(cond,task)
+        cond = self.parse_bool()
+        task = Parser(self.current_token).splitter()
+        return WhileLoop(cond, task)
 
     def parse_paran(self):
         assert self.current_token == Paranthesis("(")
@@ -780,7 +813,7 @@ class Parser:
     def main(self):
         asts = self.splitter()
         for ast in asts:
-            if type(ast)==list:
+            if type(ast) == list:
                 Parser(ast).main()
             else:
                 eval(ast)
@@ -790,3 +823,5 @@ s = input()
 text = open(s).read()
 l = Lexer(text).tokenize()
 Parser(l).main()
+#lis=[Identifier(word='sum'), Operator(operator='='), Identifier(word='sum'), Operator(operator='+'), Num(n=1), Delimiter(delim=';'), Identifier(word='sum'), Operator(operator='='), Identifier(word='sum'), Operator(operator='/'), Num(n=2), Delimiter(delim=';')]
+#print(Parser(lis).splitter())
