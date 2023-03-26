@@ -210,24 +210,28 @@ class BoolLiteral:
 class Print:
     exp: "AST"
 
-# implementing functions(with recurssion)
+# Implementing functions
 @dataclass
 class Function:
-    params: list[str]
-    body: 'AST'
-                    
-    def __call__(self, *args):   
-        if len(args) != len(self.params):
-            raise InvalidProgram("Incorrect number of arguments")
+    parameters: list[str]
+    body: list['AST']
 
-        local_env = dict()
-        for name, value in zip(self.params, args):
-            local_env[name] = value           # storing the parameters of the function and the local variables created
+    def call(self, arguments: list[Value]) -> Value:
+        if not self.body:      # to handle the case where body of the function is empty
+            return None
+        
+        # the parameters passed in the function while calling it should be equal to the number arguments while defining it. 
+        # this if-else statement checks this condition
+        if len(arguments) != len(self.parameters):
+            raise InvalidProgram()
+        
+        environment = dict(zip(self.parameters, arguments))
+        result = None
 
-         # the lambda function takes the arguments using *inner_args and calls itself using self
-        local_env['recursion'] = lambda *inner_args: self(*inner_args)   # implementing recurssion 
+        for expression in self.body:
+            result = eval(expression, environment)  # here, expression can also be a function, thus calling recurssion
 
-        return eval(self.body, local_env)   # evaluates the body of the function  
+        return result 
 
 AST = (
     NumLiteral
@@ -507,8 +511,37 @@ def eval(program: AST, environment: Mapping[str, Value] = None) -> Value:
             value = eval(exp, environment)
             print(value)
             return value
+        
+        # adding case for functions
+        case Function(parameters, body):
+            def function_eval(arguments: list[Value]) -> Value:
+                # create a copy of the environment for the function
+                # a new environment is created since each function has it's own environment and own set of local variables 
+                function_environment = environment.copy()
+
+                # mapping the arguments to the parameter names
+                for name, value in zip(parameters, arguments):
+                    function_environment[name] = value
+
+                # evaluating the function in the new environment
+                result = None
+                for expr in body:
+                    result = eval(expr, function_environment)
+                return result
+            
+            return function_eval
+        
+        # adding case for function calls
+        case Function.call(name, arguments):
+            function = eval(Variable(name), environment)          
+            # evaluating the arguments
+            evaluated_arguments = [eval(arg, environment) for arg in arguments]
+            # calling the function with the evaluated arguments
+            return function(evaluated_arguments)
+        
         case _:
             raise InvalidProgram()
+        
 def boolify(s: AST):
     e = eval(s)
     if typeof(e) == "type Fraction":
