@@ -11,6 +11,7 @@ variable_list = []
 class EndOfStream(Exception):
     pass
 
+
 @dataclass
 class Num:
     n: int
@@ -45,9 +46,10 @@ class Paranthesis:
 class Delimiter:
     delim: str
 
+
 @dataclass
 class String:
-    string:str
+    string: str
 
 
 Token = Num | Bool | Keyword | Identifier | Operator | Paranthesis | Delimiter
@@ -79,7 +81,7 @@ class TokenError(Exception):
 
 
 operations = ["=", ">", "<", "+", "-", "*", "/", "!=", "<=", ">=", "%", "^"]
-keywords = "if then else end while do done print for from to def".split()
+keywords = "if then else while print for from to def".split()
 delimiters = ['"', ";"]
 
 
@@ -153,10 +155,10 @@ class Lexer:
                     self.advance()
 
                 case "[":
-                    temp=""
+                    temp = ""
                     self.advance()
-                    while self.current_char!="]":
-                        temp+=self.current_char
+                    while self.current_char != "]":
+                        temp += self.current_char
                         self.advance()
                     self.advance()
                     tokens.append(String(temp))
@@ -323,7 +325,7 @@ AST = (
     | LetFun
     | FunCall
     | ForLoop
-    |WhileLoop
+    | WhileLoop
 )
 
 
@@ -453,7 +455,7 @@ class Environment:
 
     def exit_scope(self):
         assert self.envs
-        self.envs.pop()
+        self.envs=self.envs[:-1]
 
     def add(self, name, value):
         assert name not in self.envs[-1]
@@ -462,16 +464,15 @@ class Environment:
     def get(self, name):
         for env in reversed(self.envs):
             if name in env:
-                return env[name].value
-        raise KeyError()
+                return env[name]
+        raise KeyError("reference before assignment")
 
     def update(self, name, value):
         for env in reversed(self.envs):
             if name in env:
                 env[name] = value
-                return env[name].value
+                return env[name]
         self.add(name, value)
-        # raise KeyError()
 
 
 def resolve(program: AST, environment: Environment = None) -> AST:
@@ -512,10 +513,8 @@ def resolve(program: AST, environment: Environment = None) -> AST:
             return FunCall(rfn, rargs)
 
 
-def eval(program: AST, environment: Mapping[str, Value] = None) -> Value:
+def eval(program: AST, environment: Environment) -> Value:
     # typeof(program)
-    if environment is None:
-        environment = Environment()
     match program:
         case NumLiteral(value):
             return value
@@ -527,10 +526,7 @@ def eval(program: AST, environment: Mapping[str, Value] = None) -> Value:
             v1 = eval(e1, environment)
             return eval(e2, environment | {name: v1})
         case Var(name, value):
-            for variable in variable_list:
-                if variable.name == name:
-                    return variable.value
-            raise InvalidProgram("reference before assignment")
+            return environment.get(name)
         case BinOp("+", left, right):
             return eval(left, environment) + eval(right, environment)
         case BinOp("-", left, right):
@@ -546,18 +542,18 @@ def eval(program: AST, environment: Mapping[str, Value] = None) -> Value:
         case BinOp("==", left, right):
             return eval(left, environment) == eval(right, environment)
         case BinOp("%", left, right):
-            return eval(left) % eval(right)
+            return eval(left, environment) % eval(right, environment)
         case If(cond, true_branch, false_branch):
             if eval(cond, environment):
                 for task in true_branch:
-                    eval(task,environment)
-                #return eval(true_branch, environment)
+                    eval(task, environment)
+                # return eval(true_branch, environment)
             else:
                 for task in false_branch:
-                    eval(task,environment)
-                #return eval(false_branch, environment)
+                    eval(task, environment)
+                # return eval(false_branch, environment)
         case BinOp("^", left, right):
-            return eval(left) ** eval(right)
+            return eval(left, environment) ** eval(right, environment)
         case BinOp("!=", left, right):
             return eval(left, environment) != eval(right, environment)
         case BinOp("<=", left, right):
@@ -565,30 +561,27 @@ def eval(program: AST, environment: Mapping[str, Value] = None) -> Value:
         case BinOp(">=", left, right):
             return eval(left, environment) >= eval(right, environment)
         case BinOp("=", left, right):
-            right_eval = eval(right)
+            right_eval = eval(right, environment)
             match left:
                 case Var(name, value):
-                    left.value = right_eval
-                    flag = 1
-                    for var in variable_list:
-                        if var.name == left.name:
-                            var.value = left.value
-                            flag = 0
-                    if flag:
-                        variable_list.append(left)
+                    environment.update(name, right_eval)
                 case _:
                     raise InvalidProgram()
         case ForLoop(var, start, end, body):
-            start_val = eval(start)
-            end_val = eval(end)
+            start_val = eval(start, environment)
+            end_val = eval(end, environment)
+            environment.enter_scope()
             for j in range(int(start_val), int(end_val) + 1):
                 eval(BinOp("=", var, NumLiteral(Fraction(j))))
                 for ast in body:
-                    eval(ast)
+                    eval(ast, environment)
+            environment.exit_scope()
         case WhileLoop(cond, task):
-            while eval(cond) == True:
+            environment.enter_scope()
+            while eval(cond, environment) == True:
                 for tas in task:
-                    eval(tas)
+                    eval(tas, environment)
+            environment.exit_scope()
             return
 
         # adding case for print statement
@@ -636,6 +629,9 @@ def test_let_eval():
     e3 = NumLiteral(6)
     e = BinOp("+", Let(a, e1, e2), Let(a, e3, e2))
     assert eval(e) == 22
+
+
+environ = Environment()
 
 
 class Parser:
@@ -814,12 +810,10 @@ class Parser:
             if type(ast) == list:
                 Parser(ast).main()
             else:
-                eval(ast)
+                eval(ast, environ)
 
 
 s = input()
 text = open(s).read()
 l = Lexer(text).tokenize()
 Parser(l).main()
-#lis=[Identifier(word='sum'), Operator(operator='='), Identifier(word='sum'), Operator(operator='+'), Num(n=1), Delimiter(delim=';'), Identifier(word='sum'), Operator(operator='='), Identifier(word='sum'), Operator(operator='/'), Num(n=2), Delimiter(delim=';')]
-#print(Parser(lis).splitter())

@@ -173,7 +173,18 @@ class BinOp:
 @dataclass
 class Variable:
     name: str
-
+    
+    def slicing(self,name,start_index:NumLiteral,end_index:NumLiteral):
+        
+        if start_index>len(name)-1:
+            raise IndexError
+        if end_index<=start_index:
+            raise IndexError
+        if end_index>len(name):
+            raise IndexError
+        else:
+            string_slice=name[start_index:end_index]
+            return string_slice
 @dataclass
 class Var:
     name: str
@@ -254,12 +265,13 @@ AST = (
     | WhileLoop
 )
 
+
+Value = Fraction | FnObject | bool | ForLoop | Let
+
 @dataclass
 class FnObject:
     params: List["AST"]
     body: "AST"
-
-Value = Fraction | FnObject | bool | ForLoop
 
 
 class InvalidProgram(Exception):
@@ -719,6 +731,15 @@ def test_ForLoop():
     result = eval(ast, environment)
     print(result)
     # assert result == Fraction(120)
+
+def test_concat():
+    a=Variable("hello")
+    b=Variable("world")
+    c=BinOp("+",a,b)
+    assert eval(c)== "helloworld"
+    
+def test_slice(a:Variable):
+    Variable.slicing(Variable,a,1,4)
 
 def test_let_eval():
     a = Variable("a")
