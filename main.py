@@ -250,6 +250,16 @@ class Let:
     e2: "AST"
 
 
+@dataclass
+class Put:
+    var: "AST"
+    e1: "AST"
+
+
+@dataclass
+class Get:
+    var: "AST"
+
 AST = (
     NumLiteral
     | BinOp
