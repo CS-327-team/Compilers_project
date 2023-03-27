@@ -1,0 +1,7 @@
+radius=0;
+pi=3;
+for i from 1 to 5{
+    radius=i;
+    area=pi*radius*radius;
+    print(area);
+};

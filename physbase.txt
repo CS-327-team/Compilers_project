@@ -1,0 +1,19 @@
+for i from 1 to 100 {
+if i%3==0
+then{
+    if i%5==0 then{
+        print([PHYS-BASE]);
+    }
+    else{
+        print([PHYS]);
+    };
+}
+else{
+    if i%5==0 then{
+        print([BASE]);
+    }
+    else{
+        print(i);
+    };
+};
+};
