@@ -179,7 +179,18 @@ class BinOp:
 @dataclass
 class Variable:
     name: str
-
+    
+    def slicing(self,name,start_index:NumLiteral,end_index:NumLiteral):
+        
+        if start_index>len(name)-1:
+            raise IndexError
+        if end_index<=start_index:
+            raise IndexError
+        if end_index>len(name):
+            raise IndexError
+        else:
+            string_slice=name[start_index:end_index]
+            return string_slice
 @dataclass
 class Var:
     name: str
@@ -198,12 +209,100 @@ class WhileLoop:
     task: List
 
 
+# Implementing If-Else statement
+@dataclass
+class If:
+  cond : 'AST'
+  true_branch : 'AST'
+  false_branch : 'AST'
+
+# Implementing the Boolean Type
+@dataclass
+class BoolLiteral:
+    value : bool
+    def __init__(self, value:bool):
+        self.value = value
+
+# implementing the print function
+@dataclass
+class Print:
+    exp: "AST"
+
+# implementing functions(with recurssion)
+@dataclass
+class Function:
+    params: list[str]
+    body: 'AST'
+                    
+    def __call__(self, *args):   
+        if len(args) != len(self.params):
+            raise InvalidProgram("Incorrect number of arguments")
+
+        local_env = dict()
+        for name, value in zip(self.params, args):
+            local_env[name] = value           # storing the parameters of the function and the local variables created
+
+         # the lambda function takes the arguments using *inner_args and calls itself using self
+        local_env['recursion'] = lambda *inner_args: self(*inner_args)   # implementing recurssion 
+
+        return eval(self.body, local_env)   # evaluates the body of the function  
+
+
 
 @dataclass
 class Let:
     var: "AST"
     e1: "AST"
     e2: "AST"
+
+
+@dataclass
+class ParallelLet:
+    vars: List[Variable]
+    exprs: List['AST']
+    body: 'AST'
+
+@dataclass
+class Index:
+    array: 'AST'
+    index: 'AST'
+
+@dataclass
+class Append:
+    array: 'AST'
+    value: 'AST'
+
+@dataclass
+class Pop:
+    array: 'AST'
+
+@dataclass
+class Concat:
+    left: 'AST'
+    right: 'AST'
+
+@dataclass
+class Assign:
+    array: 'AST'
+    index: 'AST'
+    value: 'AST'
+
+@dataclass
+class MutableArray:
+    elements: List['AST']
+
+
+
+@dataclass
+class Put:
+    var: "AST"
+    e1: "AST"
+
+
+@dataclass
+class Get:
+    var: "AST"
+
 
 AST = (
     NumLiteral
@@ -215,12 +314,23 @@ AST = (
     | Get
     | Seq
     | LetFun
+    | ParallelLet
     | FunCall
     | ForLoop
-    |WhileLoop
+
+    | Index | Append | Pop | Concat | Assign | MutableArray
+
+    | WhileLoop
+
 )
 
-Value = Fraction | FnObject | bool | ForLoop
+
+Value = Fraction | FnObject | bool | ForLoop | Let
+
+@dataclass
+class FnObject:
+    params: List["AST"]
+    body: "AST"
 
 
 class InvalidProgram(Exception):
@@ -395,6 +505,61 @@ def resolve(program: AST, environment: Environment = None) -> AST:
             for arg in args:
                 rargs.append(resolve_(arg))
             return FunCall(rfn, rargs)
+        case ParallelLet(vars, exprs, body):
+            if len(vars) != len(exprs):
+                raise InvalidProgram()
+            new_env = environment.copy()
+            for var, expr in zip(vars, exprs):
+                new_env[var.name] = eval(expr, environment)
+            return eval(body, new_env)
+         case MutableArray(elements):
+            return [eval(element, environment) for element in elements]
+        case Index(array, index):
+            array_value = eval(array, environment)
+            index_value = eval(index, environment)
+            if not isinstance(array_value, list):
+                raise InvalidProgram("Can only index into a list")
+            if not isinstance(index_value, int):
+                raise InvalidProgram("Index must be an integer")
+            try:
+                return array_value[index_value]
+            except IndexError:
+                raise InvalidProgram("Index out of range")
+        case Append(array, value):
+            array_value = eval(array, environment)
+            value = eval(value, environment)
+            if not isinstance(array_value, list):
+                raise InvalidProgram("Can only append to a list")
+            array_value.append(value)
+            return array_value
+        case Pop(array):
+            array_value = eval(array, environment)
+            if not isinstance(array_value, list):
+                raise InvalidProgram("Can only pop from a list")
+            try:
+                array_value.pop(-1) # remove last element
+            except IndexError:
+                raise InvalidProgram("Can't pop from an empty list")
+            return array_value
+        case Concat(left, right):
+            left_value = eval(left, environment)
+            right_value = eval(right, environment)
+            if not isinstance(left_value, list) or not isinstance(right_value, list):
+                raise InvalidProgram("Can only concatenate two lists")
+            return left_value + right_value
+        case Assign(array, index, value):
+            array_value = eval(array, environment)
+            index_value = eval(index, environment)
+            value = eval(value, environment)
+            if not isinstance(array_value, list):
+                raise InvalidProgram("Can only assign to a list")
+            if not isinstance(index_value, int):
+                raise InvalidProgram("Index must be an integer")
+            try:
+                array_value[index_value] = value
+            except IndexError:
+                raise InvalidProgram("Index out of range")
+            return array_value
         
 
 def eval(program: AST, environment: Mapping[str, Value] = None) -> Value:
@@ -421,6 +586,12 @@ def eval(program: AST, environment: Mapping[str, Value] = None) -> Value:
             return eval(left, environment) * eval(right, environment)
         case BinOp("/", left, right):
             return eval(left, environment) / eval(right, environment)
+        case BinOp(">", left, right):
+            return eval(left, environment) > eval(right, environment)
+        case BinOp("<", left, right):
+            return eval(left, environment) < eval(right, environment)
+        case BinOp("==", left, right):
+            return eval(left, environment) == eval(right, environment)
         case BinOp("%", left, right):
             return eval(left) % eval(right)
         case If(cond, true_branch, false_branch):
@@ -434,6 +605,12 @@ def eval(program: AST, environment: Mapping[str, Value] = None) -> Value:
                 #return eval(false_branch, environment)
         case BinOp("^", left, right):
             return eval(left) ** eval(right)
+        case BinOp("!=", left, right):
+            return eval(left, environment) != eval(right, environment)
+        case BinOp("<=", left, right):
+            return eval(left, environment) <= eval(right, environment)
+        case BinOp(">=", left, right):
+            return eval(left, environment) >= eval(right, environment)
         case BinOp("=", left, right):
             right_eval = eval(right)
             match left:
@@ -460,6 +637,12 @@ def eval(program: AST, environment: Mapping[str, Value] = None) -> Value:
                 for tas in task:
                     eval(tas)
             return
+        
+        # adding case for print statement
+        case Print(exp):
+            value = eval(exp, environment)
+            print(value)
+            return value
         case _:
             raise InvalidProgram()
 def boolify(s: AST):
@@ -652,13 +835,6 @@ class Parser:
             else:
                 eval(ast, environ)
 
-
-s = input()
-text = open(s).read()
-l = Lexer(text).tokenize()
-Parser(l).main()
-
-
 def test_ForLoop():
     # for loop that sums up the numbers from 1 to 5
     e1 = Variable.make("sum")
@@ -675,6 +851,15 @@ def test_ForLoop():
     print(result)
     # assert result == Fraction(120)
 
+def test_concat():
+    a=Variable("hello")
+    b=Variable("world")
+    c=BinOp("+",a,b)
+    assert eval(c)== "helloworld"
+    
+def test_slice(a:Variable):
+    Variable.slicing(Variable,a,1,4)
+
 def test_let_eval():
     a = Variable("a")
     e1 = NumLiteral(5)
@@ -690,3 +875,29 @@ def test_let_eval():
     e3 = NumLiteral(6)
     e = BinOp("+", Let(a, e1, e2), Let(a, e3, e2))
     assert eval(e) == 22
+
+def test_mutarray_eval():
+    e1 = NumLiteral(1)
+    e2 = NumLiteral(2)
+    e3 = NumLiteral(3)
+    e4 = MutableArray([e1, e2])
+    e5 = Append(e4, e3)
+    e6 = Index(e4, NumLiteral(0))
+    e7 = Pop(e5)
+    e8 = Concat(Concat(e4, e5), MutableArray([]))
+    e9 = Assign(e4, NumLiteral(0), NumLiteral(0))
+
+
+    assert eval(e4) == [1, 2]
+    assert eval(e5) == [1, 2, 3]
+    assert eval(e6) == 1
+    assert eval(Index(e5, NumLiteral(2))) == 3
+    assert eval(e7) == [1,2]
+    assert eval(e8) == [1, 2, 1, 2, 3]
+    assert eval(e9) == [0, 2]
+
+
+s = input()
+text = open(s).read()
+l = Lexer(text).tokenize()
+Parser(l).main()
