@@ -173,7 +173,18 @@ class BinOp:
 @dataclass
 class Variable:
     name: str
-
+    
+    def slicing(self,name,start_index:NumLiteral,end_index:NumLiteral):
+        
+        if start_index>len(name)-1:
+            raise IndexError
+        if end_index<=start_index:
+            raise IndexError
+        if end_index>len(name):
+            raise IndexError
+        else:
+            string_slice=name[start_index:end_index]
+            return string_slice
 @dataclass
 class Var:
     name: str
@@ -190,6 +201,7 @@ class ForLoop:
 class WhileLoop:
     cond: bool
     task: List
+
 
 # Implementing If-Else statement
 @dataclass
@@ -212,7 +224,7 @@ class Print:
 
 # Implementing functions
 @dataclass
-class Function:
+class FunCall:
     parameters: list[str]
     body: list['AST']
 
@@ -221,7 +233,7 @@ class Function:
             return None
         
         # the parameters passed in the function while calling it should be equal to the number arguments while defining it. 
-        # this if-else statement checks this condition
+        # this if statement checks this condition
         if len(arguments) != len(self.parameters):
             raise InvalidProgram()
         
@@ -232,6 +244,25 @@ class Function:
             result = eval(expression, environment)  # here, expression can also be a function, thus calling recurssion
 
         return result 
+
+
+
+@dataclass
+class Let:
+    var: "AST"
+    e1: "AST"
+    e2: "AST"
+
+
+@dataclass
+class Put:
+    var: "AST"
+    e1: "AST"
+
+
+@dataclass
+class Get:
+    var: "AST"
 
 AST = (
     NumLiteral
@@ -248,12 +279,13 @@ AST = (
     | WhileLoop
 )
 
+
+Value = Fraction | FnObject | bool | ForLoop | Let
+
 @dataclass
 class FnObject:
     params: List["AST"]
     body: "AST"
-
-Value = Fraction | FnObject | bool | ForLoop
 
 
 class InvalidProgram(Exception):
@@ -513,7 +545,7 @@ def eval(program: AST, environment: Mapping[str, Value] = None) -> Value:
             return value
         
         # adding case for functions
-        case Function(parameters, body):
+        case FunCall(parameters, body):
             def function_eval(arguments: list[Value]) -> Value:
                 # create a copy of the environment for the function
                 # a new environment is created since each function has it's own environment and own set of local variables 
@@ -532,16 +564,14 @@ def eval(program: AST, environment: Mapping[str, Value] = None) -> Value:
             return function_eval
         
         # adding case for function calls
-        case Function.call(name, arguments):
+        case FunCall.call(name, arguments):
             function = eval(Variable(name), environment)          
             # evaluating the arguments
             evaluated_arguments = [eval(arg, environment) for arg in arguments]
             # calling the function with the evaluated arguments
             return function(evaluated_arguments)
-        
         case _:
             raise InvalidProgram()
-        
 def boolify(s: AST):
     e = eval(s)
     if typeof(e) == "type Fraction":
@@ -743,7 +773,41 @@ def test_ForLoop():
     print(result)
     # assert result == Fraction(120)
 
+def test_concat():
+    a=Variable("hello")
+    b=Variable("world")
+    c=BinOp("+",a,b)
+    assert eval(c)== "helloworld"
+    
+def test_slice(a:Variable):
+    Variable.slicing(Variable,a,1,4)
 
+def test_let_eval():
+    a = Variable("a")
+    e1 = NumLiteral(5)
+    e2 = BinOp("+", a, a)
+    e = Let(a, e1, e2)
+    assert eval(e) == 10
+    e = Let(a, e1, Let(a, e2, e2))
+    assert eval(e) == 20
+    e = Let(a, e1, BinOp("+", a, Let(a, e2, e2)))
+    assert eval(e) == 25
+    e = Let(a, e1, BinOp("+", Let(a, e2, e2), a))
+    assert eval(e) == 25
+    e3 = NumLiteral(6)
+    e = BinOp("+", Let(a, e1, e2), Let(a, e3, e2))
+    assert eval(e) == 22
+
+def test_function():
+    # Test for base case
+    base = eval(FunCall(['n'], [If(BinOp("==", Variable('n'), NumLiteral(0)), NumLiteral(1), BinOp("*", Variable('n'), FunCall.call('factorial', [BinOp("-", Variable('n'), NumLiteral(1))])))]) \
+                .call([NumLiteral(0)]))
+    assert base == 1
+    
+    # Test for n = 5
+    test_1 = eval(FunCall(['n'], [If(BinOp("==", Variable('n'), NumLiteral(0)), NumLiteral(1), BinOp("*", Variable('n'), FunCall.call('factorial', [BinOp("-", Variable('n'), NumLiteral(1))])))]) \
+                .call([NumLiteral(5)]))
+    assert test_1 == 120
 
 s = input()
 text = open(s).read()
