@@ -4,8 +4,6 @@ from typing import Mapping, List
 
 digit_list = "1234567890"
 alphabet_list = "ABCDEFGHIJKLOMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
-variable_list = []
-
 
 @dataclass
 class EndOfStream(Exception):
@@ -36,6 +34,7 @@ class Operator:
     operator: str
 
 
+
 @dataclass
 class Paranthesis:
     paran: str
@@ -46,7 +45,11 @@ class Delimiter:
     delim: str
 
 
-Token = Num | Bool | Keyword | Identifier | Operator | Paranthesis | Delimiter
+@dataclass
+class String:
+    string: str
+
+Token = Num | Bool | Keyword | Identifier | Operator | Paranthesis | Delimiter|String
 
 
 @dataclass
@@ -78,7 +81,6 @@ operations = ["=", ">", "<", "+", "-", "*", "/", "!=", "<=", ">=", "%", "^"]
 keywords = "if then else end while do done print for from to def".split()
 delimiters = ['"', ";"]
 
-
 class Lexer:
     def __init__(self, text):
         self.text = text
@@ -88,11 +90,6 @@ class Lexer:
 
     def advance(self):
         self.pos += 1
-        self.current_char = self.text[self.pos] if self.pos < len(self.text) else None
-
-    def backtrack(self):
-        assert self.pos > 0
-        self.pos -= 1
         self.current_char = self.text[self.pos] if self.pos < len(self.text) else None
 
     def tokenize(self):
@@ -144,9 +141,18 @@ class Lexer:
                             temp += self.current_char
                         self.advance()
                     tokens.append(Lexer(temp[:-1]).tokenize())
-                case s if s in "()}{":
+                case s if s in "()":
                     tokens.append(Paranthesis(s))
                     self.advance()
+
+                case "[":
+                    temp = ""
+                    self.advance()
+                    while self.current_char != "]":
+                        temp += self.current_char
+                        self.advance()
+                    self.advance()
+                    tokens.append(String(temp))
 
                 case s if s in delimiters:
                     tokens.append(Delimiter(s))
@@ -465,6 +471,9 @@ def boolify(s: AST):
     else:
         return s
     
+environ = Environment()
+
+
 class Parser:
     def __init__(self, tokens):
         self.tokens = tokens
@@ -491,6 +500,8 @@ class Parser:
                 return BoolLiteral(value)
             case Paranthesis("("):
                 return self.parse_paran()
+            case String(string):
+                return Variable(string)
         if type(self.current_token) == list:
             return Parser(self.current_token).parse_expr()
 
@@ -639,7 +650,14 @@ class Parser:
             if type(ast) == list:
                 Parser(ast).main()
             else:
-                eval(ast)
+                eval(ast, environ)
+
+
+s = input()
+text = open(s).read()
+l = Lexer(text).tokenize()
+Parser(l).main()
+
 
 def test_ForLoop():
     # for loop that sums up the numbers from 1 to 5
@@ -672,8 +690,3 @@ def test_let_eval():
     e3 = NumLiteral(6)
     e = BinOp("+", Let(a, e1, e2), Let(a, e3, e2))
     assert eval(e) == 22
-
-s = input()
-text = open(s).read()
-l = Lexer(text).tokenize()
-Parser(l).main()
