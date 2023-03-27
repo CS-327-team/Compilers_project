@@ -4,8 +4,6 @@ from typing import Mapping, List
 
 digit_list = "1234567890"
 alphabet_list = "ABCDEFGHIJKLOMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
-variable_list = []
-
 
 @dataclass
 class EndOfStream(Exception):
@@ -36,6 +34,7 @@ class Operator:
     operator: str
 
 
+
 @dataclass
 class Paranthesis:
     paran: str
@@ -46,7 +45,11 @@ class Delimiter:
     delim: str
 
 
-Token = Num | Bool | Keyword | Identifier | Operator | Paranthesis | Delimiter
+@dataclass
+class String:
+    string: str
+
+Token = Num | Bool | Keyword | Identifier | Operator | Paranthesis | Delimiter|String
 
 
 @dataclass
@@ -78,7 +81,6 @@ operations = ["=", ">", "<", "+", "-", "*", "/", "!=", "<=", ">=", "%", "^"]
 keywords = "if then else end while do done print for from to def".split()
 delimiters = ['"', ";"]
 
-
 class Lexer:
     def __init__(self, text):
         self.text = text
@@ -88,11 +90,6 @@ class Lexer:
 
     def advance(self):
         self.pos += 1
-        self.current_char = self.text[self.pos] if self.pos < len(self.text) else None
-
-    def backtrack(self):
-        assert self.pos > 0
-        self.pos -= 1
         self.current_char = self.text[self.pos] if self.pos < len(self.text) else None
 
     def tokenize(self):
@@ -144,9 +141,18 @@ class Lexer:
                             temp += self.current_char
                         self.advance()
                     tokens.append(Lexer(temp[:-1]).tokenize())
-                case s if s in "()}{":
+                case s if s in "()":
                     tokens.append(Paranthesis(s))
                     self.advance()
+
+                case "[":
+                    temp = ""
+                    self.advance()
+                    while self.current_char != "]":
+                        temp += self.current_char
+                        self.advance()
+                    self.advance()
+                    tokens.append(String(temp))
 
                 case s if s in delimiters:
                     tokens.append(Delimiter(s))
@@ -273,6 +279,54 @@ class Let:
     e2: "AST"
 
 
+@dataclass
+class ParallelLet:
+    vars: List[Variable]
+    exprs: List['AST']
+    body: 'AST'
+
+@dataclass
+class Index:
+    array: 'AST'
+    index: 'AST'
+
+@dataclass
+class Append:
+    array: 'AST'
+    value: 'AST'
+
+@dataclass
+class Pop:
+    array: 'AST'
+
+@dataclass
+class Concat:
+    left: 'AST'
+    right: 'AST'
+
+@dataclass
+class Assign:
+    array: 'AST'
+    index: 'AST'
+    value: 'AST'
+
+@dataclass
+class MutableArray:
+    elements: List['AST']
+
+
+
+@dataclass
+class Put:
+    var: "AST"
+    e1: "AST"
+
+
+@dataclass
+class Get:
+    var: "AST"
+
+
 AST = (
     NumLiteral
     | BinOp
@@ -283,9 +337,14 @@ AST = (
     | Get
     | Seq
     | LetFun
+    | ParallelLet
     | FunCall
     | ForLoop
+
+    | Index | Append | Pop | Concat | Assign | MutableArray
+
     | WhileLoop
+
 )
 
 
@@ -469,6 +528,61 @@ def resolve(program: AST, environment: Environment = None) -> AST:
             for arg in args:
                 rargs.append(resolve_(arg))
             return FunCall(rfn, rargs)
+        case ParallelLet(vars, exprs, body):
+            if len(vars) != len(exprs):
+                raise InvalidProgram()
+            new_env = environment.copy()
+            for var, expr in zip(vars, exprs):
+                new_env[var.name] = eval(expr, environment)
+            return eval(body, new_env)
+         case MutableArray(elements):
+            return [eval(element, environment) for element in elements]
+        case Index(array, index):
+            array_value = eval(array, environment)
+            index_value = eval(index, environment)
+            if not isinstance(array_value, list):
+                raise InvalidProgram("Can only index into a list")
+            if not isinstance(index_value, int):
+                raise InvalidProgram("Index must be an integer")
+            try:
+                return array_value[index_value]
+            except IndexError:
+                raise InvalidProgram("Index out of range")
+        case Append(array, value):
+            array_value = eval(array, environment)
+            value = eval(value, environment)
+            if not isinstance(array_value, list):
+                raise InvalidProgram("Can only append to a list")
+            array_value.append(value)
+            return array_value
+        case Pop(array):
+            array_value = eval(array, environment)
+            if not isinstance(array_value, list):
+                raise InvalidProgram("Can only pop from a list")
+            try:
+                array_value.pop(-1) # remove last element
+            except IndexError:
+                raise InvalidProgram("Can't pop from an empty list")
+            return array_value
+        case Concat(left, right):
+            left_value = eval(left, environment)
+            right_value = eval(right, environment)
+            if not isinstance(left_value, list) or not isinstance(right_value, list):
+                raise InvalidProgram("Can only concatenate two lists")
+            return left_value + right_value
+        case Assign(array, index, value):
+            array_value = eval(array, environment)
+            index_value = eval(index, environment)
+            value = eval(value, environment)
+            if not isinstance(array_value, list):
+                raise InvalidProgram("Can only assign to a list")
+            if not isinstance(index_value, int):
+                raise InvalidProgram("Index must be an integer")
+            try:
+                array_value[index_value] = value
+            except IndexError:
+                raise InvalidProgram("Index out of range")
+            return array_value
         
 
 def eval(program: AST, environment: Mapping[str, Value] = None) -> Value:
@@ -521,31 +635,27 @@ def eval(program: AST, environment: Mapping[str, Value] = None) -> Value:
         case BinOp(">=", left, right):
             return eval(left, environment) >= eval(right, environment)
         case BinOp("=", left, right):
-            right_eval = eval(right)
+            right_eval = eval(right, environment)
             match left:
                 case Var(name, value):
-                    left.value = right_eval
-                    flag = 1
-                    for var in variable_list:
-                        if var.name == left.name:
-                            var.value = left.value
-                            flag = 0
-                    if flag:
-                        variable_list.append(left)
+                    environment.update(name, right_eval)
                 case _:
                     raise InvalidProgram()
         case ForLoop(var, start, end, body):
-            start_val = eval(start)
-            end_val = eval(end)
+            start_val = eval(start, environment)
+            end_val = eval(end, environment)
+            environment.enter_scope()
             for j in range(int(start_val), int(end_val) + 1):
                 eval(BinOp("=", var, NumLiteral(Fraction(j))))
                 for ast in body:
-                    eval(ast)
+                    eval(ast, environment)
+            environment.exit_scope()
         case WhileLoop(cond, task):
-            while eval(cond) == True:
+            environment.enter_scope()
+            while eval(cond, environment) == True:
                 for tas in task:
-                    eval(tas)
-            return
+                    eval(tas, environment)
+            environment.exit_scope()
         
         # adding case for print statement
         case Print(exp):
@@ -590,6 +700,9 @@ def boolify(s: AST):
     else:
         return s
     
+environ = Environment()
+
+
 class Parser:
     def __init__(self, tokens):
         self.tokens = tokens
@@ -616,6 +729,8 @@ class Parser:
                 return BoolLiteral(value)
             case Paranthesis("("):
                 return self.parse_paran()
+            case String(string):
+                return Variable(string)
         if type(self.current_token) == list:
             return Parser(self.current_token).parse_expr()
 
@@ -764,7 +879,7 @@ class Parser:
             if type(ast) == list:
                 Parser(ast).main()
             else:
-                eval(ast)
+                eval(ast, environ)
 
 def test_ForLoop():
     # for loop that sums up the numbers from 1 to 5
@@ -807,6 +922,7 @@ def test_let_eval():
     e = BinOp("+", Let(a, e1, e2), Let(a, e3, e2))
     assert eval(e) == 22
 
+
 def test_function():
     # Test for base case
     base = eval(FunCall(['n'], [If(BinOp("==", Variable('n'), NumLiteral(0)), NumLiteral(1), BinOp("*", Variable('n'), FunCall.call('factorial', [BinOp("-", Variable('n'), NumLiteral(1))])))]) \
@@ -817,6 +933,27 @@ def test_function():
     test_1 = eval(FunCall(['n'], [If(BinOp("==", Variable('n'), NumLiteral(0)), NumLiteral(1), BinOp("*", Variable('n'), FunCall.call('factorial', [BinOp("-", Variable('n'), NumLiteral(1))])))]) \
                 .call([NumLiteral(5)]))
     assert test_1 == 120
+
+def test_mutarray_eval():
+    e1 = NumLiteral(1)
+    e2 = NumLiteral(2)
+    e3 = NumLiteral(3)
+    e4 = MutableArray([e1, e2])
+    e5 = Append(e4, e3)
+    e6 = Index(e4, NumLiteral(0))
+    e7 = Pop(e5)
+    e8 = Concat(Concat(e4, e5), MutableArray([]))
+    e9 = Assign(e4, NumLiteral(0), NumLiteral(0))
+
+
+    assert eval(e4) == [1, 2]
+    assert eval(e5) == [1, 2, 3]
+    assert eval(e6) == 1
+    assert eval(Index(e5, NumLiteral(2))) == 3
+    assert eval(e7) == [1,2]
+    assert eval(e8) == [1, 2, 1, 2, 3]
+    assert eval(e9) == [0, 2]
+
 
 s = input()
 text = open(s).read()

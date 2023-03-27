@@ -52,7 +52,7 @@ class String:
     string: str
 
 
-Token = Num | Bool | Keyword | Identifier | Operator | Paranthesis | Delimiter
+Token = Num | Bool | Keyword | Identifier | Operator | Paranthesis | Delimiter|String
 
 
 @dataclass
@@ -94,11 +94,6 @@ class Lexer:
 
     def advance(self):
         self.pos += 1
-        self.current_char = self.text[self.pos] if self.pos < len(self.text) else None
-
-    def backtrack(self):
-        assert self.pos > 0
-        self.pos -= 1
         self.current_char = self.text[self.pos] if self.pos < len(self.text) else None
 
     def tokenize(self):
@@ -582,8 +577,6 @@ def eval(program: AST, environment: Environment) -> Value:
                 for tas in task:
                     eval(tas, environment)
             environment.exit_scope()
-            return
-
         # adding case for print statement
         case Print(exp):
             value = eval(exp, environment)
