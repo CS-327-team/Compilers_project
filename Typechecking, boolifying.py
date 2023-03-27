@@ -577,8 +577,6 @@ def eval(program: AST, environment: Environment) -> Value:
                 for tas in task:
                     eval(tas, environment)
             environment.exit_scope()
-            return
-
         # adding case for print statement
         case Print(exp):
             value = eval(exp, environment)
