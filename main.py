@@ -173,7 +173,18 @@ class BinOp:
 @dataclass
 class Variable:
     name: str
-
+    
+    def slicing(self,name,start_index:NumLiteral,end_index:NumLiteral):
+        
+        if start_index>len(name)-1:
+            raise IndexError
+        if end_index<=start_index:
+            raise IndexError
+        if end_index>len(name):
+            raise IndexError
+        else:
+            string_slice=name[start_index:end_index]
+            return string_slice
 @dataclass
 class Var:
     name: str
@@ -192,12 +203,52 @@ class WhileLoop:
     task: List
 
 
+# Implementing If-Else statement
+@dataclass
+class If:
+  cond : 'AST'
+  true_branch : 'AST'
+  false_branch : 'AST'
+
+# Implementing the Boolean Type
+@dataclass
+class BoolLiteral:
+    value : bool
+    def __init__(self, value:bool):
+        self.value = value
+
+# implementing the print function
+@dataclass
+class Print:
+    exp: "AST"
+
+# implementing functions(with recurssion)
+@dataclass
+class Function:
+    params: list[str]
+    body: 'AST'
+                    
+    def __call__(self, *args):   
+        if len(args) != len(self.params):
+            raise InvalidProgram("Incorrect number of arguments")
+
+        local_env = dict()
+        for name, value in zip(self.params, args):
+            local_env[name] = value           # storing the parameters of the function and the local variables created
+
+         # the lambda function takes the arguments using *inner_args and calls itself using self
+        local_env['recursion'] = lambda *inner_args: self(*inner_args)   # implementing recurssion 
+
+        return eval(self.body, local_env)   # evaluates the body of the function  
+
+
 
 @dataclass
 class Let:
     var: "AST"
     e1: "AST"
     e2: "AST"
+
 
 @dataclass
 class ParallelLet:
@@ -235,6 +286,18 @@ class MutableArray:
     elements: List['AST']
 
 
+
+@dataclass
+class Put:
+    var: "AST"
+    e1: "AST"
+
+
+@dataclass
+class Get:
+    var: "AST"
+
+
 AST = (
     NumLiteral
     | BinOp
@@ -248,11 +311,20 @@ AST = (
     | ParallelLet
     | FunCall
     | ForLoop
-    |WhileLoop
+
     | Index | Append | Pop | Concat | Assign | MutableArray
+
+    | WhileLoop
+
 )
 
-Value = Fraction | FnObject | bool | ForLoop
+
+Value = Fraction | FnObject | bool | ForLoop | Let
+
+@dataclass
+class FnObject:
+    params: List["AST"]
+    body: "AST"
 
 
 class InvalidProgram(Exception):
@@ -508,6 +580,12 @@ def eval(program: AST, environment: Mapping[str, Value] = None) -> Value:
             return eval(left, environment) * eval(right, environment)
         case BinOp("/", left, right):
             return eval(left, environment) / eval(right, environment)
+        case BinOp(">", left, right):
+            return eval(left, environment) > eval(right, environment)
+        case BinOp("<", left, right):
+            return eval(left, environment) < eval(right, environment)
+        case BinOp("==", left, right):
+            return eval(left, environment) == eval(right, environment)
         case BinOp("%", left, right):
             return eval(left) % eval(right)
         case If(cond, true_branch, false_branch):
@@ -521,6 +599,12 @@ def eval(program: AST, environment: Mapping[str, Value] = None) -> Value:
                 #return eval(false_branch, environment)
         case BinOp("^", left, right):
             return eval(left) ** eval(right)
+        case BinOp("!=", left, right):
+            return eval(left, environment) != eval(right, environment)
+        case BinOp("<=", left, right):
+            return eval(left, environment) <= eval(right, environment)
+        case BinOp(">=", left, right):
+            return eval(left, environment) >= eval(right, environment)
         case BinOp("=", left, right):
             right_eval = eval(right)
             match left:
@@ -547,6 +631,12 @@ def eval(program: AST, environment: Mapping[str, Value] = None) -> Value:
                 for tas in task:
                     eval(tas)
             return
+        
+        # adding case for print statement
+        case Print(exp):
+            value = eval(exp, environment)
+            print(value)
+            return value
         case _:
             raise InvalidProgram()
 def boolify(s: AST):
@@ -749,6 +839,15 @@ def test_ForLoop():
     result = eval(ast, environment)
     print(result)
     # assert result == Fraction(120)
+
+def test_concat():
+    a=Variable("hello")
+    b=Variable("world")
+    c=BinOp("+",a,b)
+    assert eval(c)== "helloworld"
+    
+def test_slice(a:Variable):
+    Variable.slicing(Variable,a,1,4)
 
 def test_let_eval():
     a = Variable("a")
