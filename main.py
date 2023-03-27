@@ -612,31 +612,27 @@ def eval(program: AST, environment: Mapping[str, Value] = None) -> Value:
         case BinOp(">=", left, right):
             return eval(left, environment) >= eval(right, environment)
         case BinOp("=", left, right):
-            right_eval = eval(right)
+            right_eval = eval(right, environment)
             match left:
                 case Var(name, value):
-                    left.value = right_eval
-                    flag = 1
-                    for var in variable_list:
-                        if var.name == left.name:
-                            var.value = left.value
-                            flag = 0
-                    if flag:
-                        variable_list.append(left)
+                    environment.update(name, right_eval)
                 case _:
                     raise InvalidProgram()
         case ForLoop(var, start, end, body):
-            start_val = eval(start)
-            end_val = eval(end)
+            start_val = eval(start, environment)
+            end_val = eval(end, environment)
+            environment.enter_scope()
             for j in range(int(start_val), int(end_val) + 1):
                 eval(BinOp("=", var, NumLiteral(Fraction(j))))
                 for ast in body:
-                    eval(ast)
+                    eval(ast, environment)
+            environment.exit_scope()
         case WhileLoop(cond, task):
-            while eval(cond) == True:
+            environment.enter_scope()
+            while eval(cond, environment) == True:
                 for tas in task:
-                    eval(tas)
-            return
+                    eval(tas, environment)
+            environment.exit_scope()
         
         # adding case for print statement
         case Print(exp):
