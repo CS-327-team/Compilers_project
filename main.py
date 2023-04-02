@@ -265,6 +265,8 @@ class FnObject:
     params: List["AST"]
     body: "AST"
 
+Value = Fraction | FnObject | bool | ForLoop | Let 
+
 # Implementing functions
 @dataclass
 class FunCall:
@@ -386,7 +388,9 @@ AST = (
 
 
 
-Value = Fraction | FnObject | bool | ForLoop | Let 
+
+
+
 
 class InvalidProgram(Exception):
     pass
