@@ -4,6 +4,7 @@ from typing import Mapping, List
 
 digit_list = "1234567890"
 alphabet_list = "ABCDEFGHIJKLOMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+variable_list = []
 
 @dataclass
 class EndOfStream(Exception):
@@ -326,23 +327,22 @@ class Put:
 class Get:
     var: "AST"
 
+@dataclass
+class Seq:
+    things: List["AST"]
 
 AST = (
-    NumLiteral
+      NumLiteral
     | BinOp
     | Variable
     | Let
-    | LetMut
     | Put
     | Get
     | Seq
-    | LetFun
     | ParallelLet
     | FunCall
     | ForLoop
-
     | Index | Append | Pop | Concat | Assign | MutableArray
-
     | WhileLoop
 
 )
@@ -354,7 +354,7 @@ class FnObject:
     params: List["AST"]
     body: "AST"
 
-Value = Fraction | FnObject | bool | ForLoop | Let
+Value = Fraction | FnObject | bool | ForLoop | Let 
 
 class InvalidProgram(Exception):
     pass
@@ -490,100 +490,7 @@ class Environment:
                 env[name] = value
                 return env[name].value
         self.add(name, value)
-
-        
-def resolve(program: AST, environment: Environment = None) -> AST:
-    if environment is None:
-        environment = Environment()
-
-    def resolve_(program: AST) -> AST:
-        return resolve(program, environment)
-
-    match program:
-        case NumLiteral(_) as N:
-            return N
-        case Variable(name):
-            return environment.get(name)
-        case Let(Variable(name) as v, e1, e2):
-            re1 = resolve_(e1)
-            environment.enter_scope()
-            environment.add(name, v)
-            re2 = resolve_(e2)
-            environment.exit_scope()
-            return Let(v, re1, re2)
-        case LetFun(Variable(name) as v, params, body, expr):
-            environment.enter_scope()
-            environment.add(name, v)
-            environment.enter_scope()
-            for param in params:
-                environment.add(param.name, param)
-            rbody = resolve_(body)
-            environment.exit_scope()
-            rexpr = resolve_(expr)
-            environment.exit_scope()
-            return LetFun(v, params, rbody, rexpr)
-        case FunCall(fn, args):
-            rfn = resolve_(fn)
-            rargs = []
-            for arg in args:
-                rargs.append(resolve_(arg))
-            return FunCall(rfn, rargs)
-        case ParallelLet(vars, exprs, body):
-            if len(vars) != len(exprs):
-                raise InvalidProgram()
-            new_env = environment.copy()
-            for var, expr in zip(vars, exprs):
-                new_env[var.name] = eval(expr, environment)
-            return eval(body, new_env)
-         case MutableArray(elements):
-            return [eval(element, environment) for element in elements]
-        case Index(array, index):
-            array_value = eval(array, environment)
-            index_value = eval(index, environment)
-            if not isinstance(array_value, list):
-                raise InvalidProgram("Can only index into a list")
-            if not isinstance(index_value, int):
-                raise InvalidProgram("Index must be an integer")
-            try:
-                return array_value[index_value]
-            except IndexError:
-                raise InvalidProgram("Index out of range")
-        case Append(array, value):
-            array_value = eval(array, environment)
-            value = eval(value, environment)
-            if not isinstance(array_value, list):
-                raise InvalidProgram("Can only append to a list")
-            array_value.append(value)
-            return array_value
-        case Pop(array):
-            array_value = eval(array, environment)
-            if not isinstance(array_value, list):
-                raise InvalidProgram("Can only pop from a list")
-            try:
-                array_value.pop(-1) # remove last element
-            except IndexError:
-                raise InvalidProgram("Can't pop from an empty list")
-            return array_value
-        case Concat(left, right):
-            left_value = eval(left, environment)
-            right_value = eval(right, environment)
-            if not isinstance(left_value, list) or not isinstance(right_value, list):
-                raise InvalidProgram("Can only concatenate two lists")
-            return left_value + right_value
-        case Assign(array, index, value):
-            array_value = eval(array, environment)
-            index_value = eval(index, environment)
-            value = eval(value, environment)
-            if not isinstance(array_value, list):
-                raise InvalidProgram("Can only assign to a list")
-            if not isinstance(index_value, int):
-                raise InvalidProgram("Index must be an integer")
-            try:
-                array_value[index_value] = value
-            except IndexError:
-                raise InvalidProgram("Index out of range")
-            return array_value
-        
+       
 
 def eval(program: AST, environment: Mapping[str, Value] = None) -> Value:
     # typeof(program)
