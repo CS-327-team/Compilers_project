@@ -4,6 +4,7 @@ from typing import Mapping, List
 
 digit_list = "1234567890"
 alphabet_list = "ABCDEFGHIJKLOMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+variable_list = []
 
 @dataclass
 class EndOfStream(Exception):
@@ -353,7 +354,7 @@ class FnObject:
     params: List["AST"]
     body: "AST"
 
-Value = Fraction | FnObject | bool | ForLoop | Let
+Value = Fraction | FnObject | bool | ForLoop | Let 
 
 class InvalidProgram(Exception):
     pass
