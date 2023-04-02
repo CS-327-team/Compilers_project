@@ -255,6 +255,12 @@ class BoolLiteral:
     def __init__(self, value:bool):
         self.value = value
 
+@dataclass
+class Let:
+    var: "AST"
+    e1: "AST"
+    e2: "AST"
+
 # implementing the print function
 @dataclass
 class Print:
@@ -293,13 +299,6 @@ class FunCall:
 
 
 @dataclass
-class Let:
-    var: "AST"
-    e1: "AST"
-    e2: "AST"
-
-
-@dataclass
 class Put:
     var: "AST"
     e1: "AST"
@@ -311,11 +310,6 @@ class Get:
 
 
 
-@dataclass
-class Let:
-    var: "AST"
-    e1: "AST"
-    e2: "AST"
 
 
 @dataclass
