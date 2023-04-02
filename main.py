@@ -260,6 +260,11 @@ class BoolLiteral:
 class Print:
     exp: "AST"
 
+@dataclass
+class FnObject:
+    params: List["AST"]
+    body: "AST"
+
 # Implementing functions
 @dataclass
 class FunCall:
@@ -380,10 +385,6 @@ AST = (
 
 
 
-@dataclass
-class FnObject:
-    params: List["AST"]
-    body: "AST"
 
 Value = Fraction | FnObject | bool | ForLoop | Let 
 
