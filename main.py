@@ -209,6 +209,37 @@ class WhileLoop:
     cond: bool
     task: List
 
+@dataclass
+class List:
+    def cons(self,x, y):
+        def dispatch(m):
+            if m == 0:
+                return x
+            elif m == 1:
+                return y
+            else:
+                raise ValueError("Argument not 0 or 1")
+        return dispatch
+
+    def is_empty(self,lst):
+        if lst is None:
+            return True
+        return False
+
+    def head(self,lst):
+        if self.is_empty(lst):
+            raise ValueError("Empty list has no head")
+        return lst(0)
+
+    def tail(self,lst):
+        if self.is_empty(lst):
+            raise ValueError("Empty list has no tail")
+        elif self.is_empty(lst(1)):
+            return
+        else:
+            print(self.head(lst(1)),' -> ', end=' ')
+            return self.tail(lst(1))
+
 
 # Implementing If-Else statement
 @dataclass
@@ -347,6 +378,12 @@ AST = (
     | WhileLoop
 
 )
+
+
+
+
+
+
 
 
 
@@ -855,6 +892,23 @@ def test_mutarray_eval():
     assert eval(e7) == [1,2]
     assert eval(e8) == [1, 2, 1, 2, 3]
     assert eval(e9) == [0, 2]
+
+def test_for_list():
+    lst= List()
+    a=lst.cons(1,None)
+    b=lst.cons(2,a)
+    c= lst.cons(3,b) #created list wit 3,2,1
+    print(lst.head(c)) #output 3
+    d=c(1) # d takes the tail of c
+    print(lst.head(d)) #output 2
+    print(lst.tail(c)) #output 2->1->None
+
+    g=lst.cons(1,None)
+    print(lst.head(g))
+    h=g(1)
+    print(lst.is_empty(g))
+    print(lst.is_empty(h))
+
 
 
 s = input()
