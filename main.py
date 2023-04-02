@@ -348,13 +348,13 @@ AST = (
 )
 
 
-Value = Fraction | FnObject | bool | ForLoop | Let
 
 @dataclass
 class FnObject:
     params: List["AST"]
     body: "AST"
 
+Value = Fraction | FnObject | bool | ForLoop | Let
 
 class InvalidProgram(Exception):
     pass
