@@ -6,7 +6,6 @@ digit_list = "1234567890"
 alphabet_list = "ABCDEFGHIJKLOMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
 variable_list = []
 
-
 @dataclass
 class EndOfStream(Exception):
     pass
@@ -36,6 +35,7 @@ class Operator:
     operator: str
 
 
+
 @dataclass
 class Paranthesis:
     paran: str
@@ -46,7 +46,11 @@ class Delimiter:
     delim: str
 
 
-Token = Num | Bool | Keyword | Identifier | Operator | Paranthesis | Delimiter
+@dataclass
+class String:
+    string: str
+
+Token = Num | Bool | Keyword | Identifier | Operator | Paranthesis | Delimiter|String
 
 
 @dataclass
@@ -78,7 +82,6 @@ operations = ["=", ">", "<", "+", "-", "*", "/", "!=", "<=", ">=", "%", "^"]
 keywords = "if then else end while do done print for from to def".split()
 delimiters = ['"', ";"]
 
-
 class Lexer:
     def __init__(self, text):
         self.text = text
@@ -88,11 +91,6 @@ class Lexer:
 
     def advance(self):
         self.pos += 1
-        self.current_char = self.text[self.pos] if self.pos < len(self.text) else None
-
-    def backtrack(self):
-        assert self.pos > 0
-        self.pos -= 1
         self.current_char = self.text[self.pos] if self.pos < len(self.text) else None
 
     def tokenize(self):
@@ -144,9 +142,18 @@ class Lexer:
                             temp += self.current_char
                         self.advance()
                     tokens.append(Lexer(temp[:-1]).tokenize())
-                case s if s in "()}{":
+                case s if s in "()":
                     tokens.append(Paranthesis(s))
                     self.advance()
+
+                case "[":
+                    temp = ""
+                    self.advance()
+                    while self.current_char != "]":
+                        temp += self.current_char
+                        self.advance()
+                    self.advance()
+                    tokens.append(String(temp))
 
                 case s if s in delimiters:
                     tokens.append(Delimiter(s))
@@ -222,24 +229,28 @@ class BoolLiteral:
 class Print:
     exp: "AST"
 
-# implementing functions(with recurssion)
+# Implementing functions
 @dataclass
-class Function:
-    params: list[str]
-    body: 'AST'
-                    
-    def __call__(self, *args):   
-        if len(args) != len(self.params):
-            raise InvalidProgram("Incorrect number of arguments")
+class FunCall:
+    parameters: list[str]
+    body: list['AST']
 
-        local_env = dict()
-        for name, value in zip(self.params, args):
-            local_env[name] = value           # storing the parameters of the function and the local variables created
+    def call(self, arguments: list[Value]) -> Value:
+        if not self.body:      # to handle the case where body of the function is empty
+            return None
+        
+        # the parameters passed in the function while calling it should be equal to the number arguments while defining it. 
+        # this if statement checks this condition
+        if len(arguments) != len(self.parameters):
+            raise InvalidProgram()
+        
+        environment = dict(zip(self.parameters, arguments))
+        result = None
 
-         # the lambda function takes the arguments using *inner_args and calls itself using self
-        local_env['recursion'] = lambda *inner_args: self(*inner_args)   # implementing recurssion 
+        for expression in self.body:
+            result = eval(expression, environment)  # here, expression can also be a function, thus calling recurssion
 
-        return eval(self.body, local_env)   # evaluates the body of the function  
+        return result 
 
 
 
@@ -250,29 +261,100 @@ class Let:
     e2: "AST"
 
 
+@dataclass
+class Put:
+    var: "AST"
+    e1: "AST"
+
+
+@dataclass
+class Get:
+    var: "AST"
+
+
+
+@dataclass
+class Let:
+    var: "AST"
+    e1: "AST"
+    e2: "AST"
+
+
+@dataclass
+class ParallelLet:
+    vars: List[Variable]
+    exprs: List['AST']
+    body: 'AST'
+
+@dataclass
+class Index:
+    array: 'AST'
+    index: 'AST'
+
+@dataclass
+class Append:
+    array: 'AST'
+    value: 'AST'
+
+@dataclass
+class Pop:
+    array: 'AST'
+
+@dataclass
+class Concat:
+    left: 'AST'
+    right: 'AST'
+
+@dataclass
+class Assign:
+    array: 'AST'
+    index: 'AST'
+    value: 'AST'
+
+@dataclass
+class MutableArray:
+    elements: List['AST']
+
+
+
+@dataclass
+class Put:
+    var: "AST"
+    e1: "AST"
+
+
+@dataclass
+class Get:
+    var: "AST"
+
+@dataclass
+class Seq:
+    things: List["AST"]
+
 AST = (
-    NumLiteral
+      NumLiteral
     | BinOp
     | Variable
     | Let
-    | LetMut
     | Put
     | Get
     | Seq
-    | LetFun
+    | ParallelLet
     | FunCall
     | ForLoop
+    | Index | Append | Pop | Concat | Assign | MutableArray
     | WhileLoop
+
 )
 
 
-Value = Fraction | FnObject | bool | ForLoop | Let
 
 @dataclass
 class FnObject:
     params: List["AST"]
     body: "AST"
 
+Value = Fraction | FnObject | bool | ForLoop | Let 
 
 class InvalidProgram(Exception):
     pass
@@ -390,7 +472,7 @@ class Environment:
 
     def exit_scope(self):
         assert self.envs
-        self.envs.pop()
+        self.envs=self.envs[:-1]
 
     def add(self, name, value):
         assert name not in self.envs[-1]
@@ -400,7 +482,7 @@ class Environment:
         for env in reversed(self.envs):
             if name in env:
                 return env[name].value
-        raise KeyError()
+        raise KeyError("reference beore assignment")
 
     def update(self, name, value):
         for env in reversed(self.envs):
@@ -408,45 +490,7 @@ class Environment:
                 env[name] = value
                 return env[name].value
         self.add(name, value)
-        # raise KeyError()
-
-def resolve(program: AST, environment: Environment = None) -> AST:
-    if environment is None:
-        environment = Environment()
-
-    def resolve_(program: AST) -> AST:
-        return resolve(program, environment)
-
-    match program:
-        case NumLiteral(_) as N:
-            return N
-        case Variable(name):
-            return environment.get(name)
-        case Let(Variable(name) as v, e1, e2):
-            re1 = resolve_(e1)
-            environment.enter_scope()
-            environment.add(name, v)
-            re2 = resolve_(e2)
-            environment.exit_scope()
-            return Let(v, re1, re2)
-        case LetFun(Variable(name) as v, params, body, expr):
-            environment.enter_scope()
-            environment.add(name, v)
-            environment.enter_scope()
-            for param in params:
-                environment.add(param.name, param)
-            rbody = resolve_(body)
-            environment.exit_scope()
-            rexpr = resolve_(expr)
-            environment.exit_scope()
-            return LetFun(v, params, rbody, rexpr)
-        case FunCall(fn, args):
-            rfn = resolve_(fn)
-            rargs = []
-            for arg in args:
-                rargs.append(resolve_(arg))
-            return FunCall(rfn, rargs)
-        
+       
 
 def eval(program: AST, environment: Mapping[str, Value] = None) -> Value:
     # typeof(program)
@@ -498,37 +542,60 @@ def eval(program: AST, environment: Mapping[str, Value] = None) -> Value:
         case BinOp(">=", left, right):
             return eval(left, environment) >= eval(right, environment)
         case BinOp("=", left, right):
-            right_eval = eval(right)
+            right_eval = eval(right, environment)
             match left:
                 case Var(name, value):
-                    left.value = right_eval
-                    flag = 1
-                    for var in variable_list:
-                        if var.name == left.name:
-                            var.value = left.value
-                            flag = 0
-                    if flag:
-                        variable_list.append(left)
+                    environment.update(name, right_eval)
                 case _:
                     raise InvalidProgram()
         case ForLoop(var, start, end, body):
-            start_val = eval(start)
-            end_val = eval(end)
+            start_val = eval(start, environment)
+            end_val = eval(end, environment)
+            environment.enter_scope()
             for j in range(int(start_val), int(end_val) + 1):
                 eval(BinOp("=", var, NumLiteral(Fraction(j))))
                 for ast in body:
-                    eval(ast)
+                    eval(ast, environment)
+            environment.exit_scope()
         case WhileLoop(cond, task):
-            while eval(cond) == True:
+            environment.enter_scope()
+            while eval(cond, environment) == True:
                 for tas in task:
-                    eval(tas)
-            return
+                    eval(tas, environment)
+            environment.exit_scope()
         
         # adding case for print statement
         case Print(exp):
             value = eval(exp, environment)
             print(value)
             return value
+        
+        # adding case for functions
+        case FunCall(parameters, body):
+            def function_eval(arguments: list[Value]) -> Value:
+                # create a copy of the environment for the function
+                # a new environment is created since each function has it's own environment and own set of local variables 
+                function_environment = environment.copy()
+
+                # mapping the arguments to the parameter names
+                for name, value in zip(parameters, arguments):
+                    function_environment[name] = value
+
+                # evaluating the function in the new environment
+                result = None
+                for expr in body:
+                    result = eval(expr, function_environment)
+                return result
+            
+            return function_eval
+        
+        # adding case for function calls
+        case FunCall.call(name, arguments):
+            function = eval(Variable(name), environment)          
+            # evaluating the arguments
+            evaluated_arguments = [eval(arg, environment) for arg in arguments]
+            # calling the function with the evaluated arguments
+            return function(evaluated_arguments)
         case _:
             raise InvalidProgram()
 def boolify(s: AST):
@@ -540,6 +607,9 @@ def boolify(s: AST):
     else:
         return s
     
+environ = Environment()
+
+
 class Parser:
     def __init__(self, tokens):
         self.tokens = tokens
@@ -566,6 +636,8 @@ class Parser:
                 return BoolLiteral(value)
             case Paranthesis("("):
                 return self.parse_paran()
+            case String(string):
+                return Variable(string)
         if type(self.current_token) == list:
             return Parser(self.current_token).parse_expr()
 
@@ -714,7 +786,7 @@ class Parser:
             if type(ast) == list:
                 Parser(ast).main()
             else:
-                eval(ast)
+                eval(ast, environ)
 
 def test_ForLoop():
     # for loop that sums up the numbers from 1 to 5
@@ -756,6 +828,39 @@ def test_let_eval():
     e3 = NumLiteral(6)
     e = BinOp("+", Let(a, e1, e2), Let(a, e3, e2))
     assert eval(e) == 22
+
+
+def test_function():
+    # Test for base case
+    base = eval(FunCall(['n'], [If(BinOp("==", Variable('n'), NumLiteral(0)), NumLiteral(1), BinOp("*", Variable('n'), FunCall.call('factorial', [BinOp("-", Variable('n'), NumLiteral(1))])))]) \
+                .call([NumLiteral(0)]))
+    assert base == 1
+    
+    # Test for n = 5
+    test_1 = eval(FunCall(['n'], [If(BinOp("==", Variable('n'), NumLiteral(0)), NumLiteral(1), BinOp("*", Variable('n'), FunCall.call('factorial', [BinOp("-", Variable('n'), NumLiteral(1))])))]) \
+                .call([NumLiteral(5)]))
+    assert test_1 == 120
+
+def test_mutarray_eval():
+    e1 = NumLiteral(1)
+    e2 = NumLiteral(2)
+    e3 = NumLiteral(3)
+    e4 = MutableArray([e1, e2])
+    e5 = Append(e4, e3)
+    e6 = Index(e4, NumLiteral(0))
+    e7 = Pop(e5)
+    e8 = Concat(Concat(e4, e5), MutableArray([]))
+    e9 = Assign(e4, NumLiteral(0), NumLiteral(0))
+
+
+    assert eval(e4) == [1, 2]
+    assert eval(e5) == [1, 2, 3]
+    assert eval(e6) == 1
+    assert eval(Index(e5, NumLiteral(2))) == 3
+    assert eval(e7) == [1,2]
+    assert eval(e8) == [1, 2, 1, 2, 3]
+    assert eval(e9) == [0, 2]
+
 
 s = input()
 text = open(s).read()
