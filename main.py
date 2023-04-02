@@ -348,13 +348,13 @@ AST = (
 )
 
 
-Value = Fraction | FnObject | bool | ForLoop | Let
 
 @dataclass
 class FnObject:
     params: List["AST"]
     body: "AST"
 
+Value = Fraction | FnObject | bool | ForLoop | Let
 
 class InvalidProgram(Exception):
     pass
@@ -472,7 +472,7 @@ class Environment:
 
     def exit_scope(self):
         assert self.envs
-        self.envs.pop()
+        self.envs=self.envs[:-1]
 
     def add(self, name, value):
         assert name not in self.envs[-1]
@@ -482,7 +482,7 @@ class Environment:
         for env in reversed(self.envs):
             if name in env:
                 return env[name].value
-        raise KeyError()
+        raise KeyError("reference beore assignment")
 
     def update(self, name, value):
         for env in reversed(self.envs):
@@ -490,8 +490,8 @@ class Environment:
                 env[name] = value
                 return env[name].value
         self.add(name, value)
-        # raise KeyError()
 
+        
 def resolve(program: AST, environment: Environment = None) -> AST:
     if environment is None:
         environment = Environment()
