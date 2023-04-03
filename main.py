@@ -210,7 +210,7 @@ class WhileLoop:
     task: List
 
 @dataclass
-class List:
+class list:
     def cons(self,x, y):
         def dispatch(m):
             if m == 0:
@@ -894,7 +894,7 @@ def test_mutarray_eval():
     assert eval(e9) == [0, 2]
 
 def test_for_list():
-    lst= List()
+    lst= list()
     a=lst.cons(1,None)
     b=lst.cons(2,a)
     c= lst.cons(3,b) #created list wit 3,2,1
