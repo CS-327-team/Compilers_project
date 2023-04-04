@@ -821,7 +821,7 @@ class Parser:
                 eval(ast, environ)
 
 
-#s = input()
-text = "print(let a=10 in a + let a=9 in a+a);"
+s = input()
+text = open(s).read()
 l = Lexer(text).tokenize()
 Parser(l).main()
