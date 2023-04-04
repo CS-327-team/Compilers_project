@@ -228,12 +228,12 @@ class list:
 
     def head(self,lst):
         if self.is_empty(lst):
-            raise ValueError("Empty List has no head")
+            raise ValueError("Empty list has no head")
         return lst(0)
 
     def tail(self,lst):
         if self.is_empty(lst):
-            raise ValueError("Empty List has no tail")
+            raise ValueError("Empty list has no tail")
         elif self.is_empty(lst(1)):
             return
         else:
@@ -892,10 +892,10 @@ def test_mutarray_eval():
     assert eval(e9) == [0, 2]
 
 def test_for_list():
-    lst= List()
+    lst= list()
     a=lst.cons(1,None)
     b=lst.cons(2,a)
-    c= lst.cons(3,b) #created List wit 3,2,1
+    c= lst.cons(3,b) #created list wit 3,2,1
     print(lst.head(c)) #output 3
     d=c(1) # d takes the tail of c
     print(lst.head(d)) #output 2
