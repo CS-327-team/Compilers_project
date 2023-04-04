@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from fractions import Fraction
-from typing import Mapping, List
+from typing import Mapping, List as List
 
 digit_list = "1234567890"
 alphabet_list = "ABCDEFGHIJKLOMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
@@ -79,7 +79,7 @@ class TokenError(Exception):
 
 
 operations = ["=", ">", "<", "+", "-", "*", "/", "!=", "<=", ">=", "%", "^"]
-keywords = "if then else end while do done print for from to def".split()
+keywords = "if then else while print for from to def let in".split()
 delimiters = ['"', ";"]
 
 class Lexer:
@@ -146,10 +146,10 @@ class Lexer:
                     tokens.append(Paranthesis(s))
                     self.advance()
 
-                case "[":
+                case "\'":
                     temp = ""
                     self.advance()
-                    while self.current_char != "]":
+                    while self.current_char != "\'":
                         temp += self.current_char
                         self.advance()
                     self.advance()
@@ -210,7 +210,7 @@ class WhileLoop:
     task: List
 
 @dataclass
-class List:
+class list:
     def cons(self,x, y):
         def dispatch(m):
             if m == 0:
@@ -276,10 +276,10 @@ Value = Fraction | FnObject | bool | ForLoop | Let
 # Implementing functions
 @dataclass
 class FunCall:
-    parameters: list[str]
-    body: list['AST']
+    parameters: List[str]
+    body: List['AST']
 
-    def call(self, arguments: list[Value]) -> Value:
+    def call(self, arguments: List[Value]) -> Value:
         if not self.body:      # to handle the case where body of the function is empty
             return None
         
@@ -296,8 +296,6 @@ class FunCall:
 
         return result 
 
-
-
 @dataclass
 class Put:
     var: "AST"
@@ -307,10 +305,6 @@ class Put:
 @dataclass
 class Get:
     var: "AST"
-
-
-
-
 
 @dataclass
 class ParallelLet:
@@ -378,15 +372,6 @@ AST = (
     | WhileLoop
 
 )
-
-
-
-
-
-
-
-
-
 
 class InvalidProgram(Exception):
     pass
@@ -513,18 +498,18 @@ class Environment:
     def get(self, name):
         for env in reversed(self.envs):
             if name in env:
-                return env[name].value
-        raise KeyError("reference beore assignment")
+                return env[name]
+        raise KeyError("reference before assignment")
 
     def update(self, name, value):
         for env in reversed(self.envs):
             if name in env:
                 env[name] = value
-                return env[name].value
+                return env[name]
         self.add(name, value)
        
 
-def eval(program: AST, environment: Mapping[str, Value] = None) -> Value:
+def eval(program: AST, environment: Environment) -> Value:
     # typeof(program)
     if environment is None:
         environment = Environment()
@@ -536,10 +521,12 @@ def eval(program: AST, environment: Mapping[str, Value] = None) -> Value:
         case BoolLiteral(value):
             return value
         case Var(name, value):
-            for variable in variable_list:
-                if variable.name == name:
-                    return variable.value
-            raise InvalidProgram("reference before assignment")
+            return environment.get(name)
+        case Let(Var(name,value),left,right):
+            environment.envs.append({name:eval(left,environment)})
+            ans=eval(right,environment)
+            environment.exit_scope()
+            return ans
         case BinOp("+", left, right):
             return eval(left, environment) + eval(right, environment)
         case BinOp("-", left, right):
@@ -555,16 +542,14 @@ def eval(program: AST, environment: Mapping[str, Value] = None) -> Value:
         case BinOp("==", left, right):
             return eval(left, environment) == eval(right, environment)
         case BinOp("%", left, right):
-            return eval(left) % eval(right)
+            return eval(left,environment) % eval(right,environment)
         case If(cond, true_branch, false_branch):
             if eval(cond, environment):
                 for task in true_branch:
                     eval(task,environment)
-                #return eval(true_branch, environment)
             else:
                 for task in false_branch:
                     eval(task,environment)
-                #return eval(false_branch, environment)
         case BinOp("^", left, right):
             return eval(left) ** eval(right)
         case BinOp("!=", left, right):
@@ -585,7 +570,7 @@ def eval(program: AST, environment: Mapping[str, Value] = None) -> Value:
             end_val = eval(end, environment)
             environment.enter_scope()
             for j in range(int(start_val), int(end_val) + 1):
-                eval(BinOp("=", var, NumLiteral(Fraction(j))))
+                eval(BinOp("=", var, NumLiteral(Fraction(j))),environment)
                 for ast in body:
                     eval(ast, environment)
             environment.exit_scope()
@@ -604,7 +589,7 @@ def eval(program: AST, environment: Mapping[str, Value] = None) -> Value:
         
         # adding case for functions
         case FunCall(parameters, body):
-            def function_eval(arguments: list[Value]) -> Value:
+            def function_eval(arguments: List[Value]) -> Value:
                 # create a copy of the environment for the function
                 # a new environment is created since each function has it's own environment and own set of local variables 
                 function_environment = environment.copy()
@@ -670,8 +655,19 @@ class Parser:
                 return self.parse_paran()
             case String(string):
                 return Variable(string)
-        if type(self.current_token) == list:
+            case Keyword("let"):
+                return self.parse_let()
+        if type(self.current_token) == List:
             return Parser(self.current_token).parse_expr()
+    
+    def parse_let(self):
+        self.advance()
+        var=self.parse_atom()
+        self.advance()
+        left=self.parse_bool()
+        self.advance()
+        right=self.parse_bool()
+        return Let(var,left,right)
 
     def parse_exp(self):
         left = self.parse_atom()
@@ -771,6 +767,8 @@ class Parser:
                         return self.parse_whileloop()
                     case "def":
                         return self.parse_function()
+                    case "let":
+                        return self.parse_let()
             case Identifier(name):
                 return self.parse_assign()
             case _:
@@ -815,7 +813,7 @@ class Parser:
     def main(self):
         asts = self.splitter()
         for ast in asts:
-            if type(ast) == list:
+            if type(ast) == List:
                 Parser(ast).main()
             else:
                 eval(ast, environ)
@@ -894,7 +892,7 @@ def test_mutarray_eval():
     assert eval(e9) == [0, 2]
 
 def test_for_list():
-    lst= List()
+    lst= list()
     a=lst.cons(1,None)
     b=lst.cons(2,a)
     c= lst.cons(3,b) #created list wit 3,2,1

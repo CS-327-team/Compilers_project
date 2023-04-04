@@ -65,7 +65,7 @@ def convert_to_token(c):
         return Bool(c)
     elif c in ["=", ">", "<", "+", "-", "*", "/", "!=", "<=", ">=", "^", "%"]:
         return Operator(c)
-    elif c in "if then else end while do done for".split():
+    elif c in "if then else end while do done for let in".split():
         return Keyword(c)
     return Identifier(c)
 
@@ -81,7 +81,7 @@ class TokenError(Exception):
 
 
 operations = ["=", ">", "<", "+", "-", "*", "/", "!=", "<=", ">=", "%", "^"]
-keywords = "if then else while print for from to def".split()
+keywords = "if then else while print for from to def let in".split()
 delimiters = ['"', ";"]
 
 
@@ -149,10 +149,10 @@ class Lexer:
                     tokens.append(Paranthesis(s))
                     self.advance()
 
-                case "[":
+                case "\'":
                     temp = ""
                     self.advance()
-                    while self.current_char != "]":
+                    while self.current_char != "\'":
                         temp += self.current_char
                         self.advance()
                     self.advance()
@@ -252,7 +252,7 @@ class Function:
 
 @dataclass
 class Let:
-    var: "AST"
+    var: Var
     e1: "AST"
     e2: "AST"
 
@@ -517,9 +517,11 @@ def eval(program: AST, environment: Environment) -> Value:
             return name
         case BoolLiteral(value):
             return value
-        case Let(Variable(name), e1, e2):
-            v1 = eval(e1, environment)
-            return eval(e2, environment | {name: v1})
+        case Let(Var(name,value),left,right):
+            environment.envs.append({name:eval(left,environment)})
+            ans=eval(right,environment)
+            environment.exit_scope()
+            return ans
         case Var(name, value):
             return environment.get(name)
         case BinOp("+", left, right):
@@ -567,7 +569,7 @@ def eval(program: AST, environment: Environment) -> Value:
             end_val = eval(end, environment)
             environment.enter_scope()
             for j in range(int(start_val), int(end_val) + 1):
-                eval(BinOp("=", var, NumLiteral(Fraction(j))))
+                eval(BinOp("=", var, NumLiteral(Fraction(j))),environment)
                 for ast in body:
                     eval(ast, environment)
             environment.exit_scope()
@@ -655,8 +657,19 @@ class Parser:
                 return self.parse_paran()
             case String(string):
                 return Variable(string)
+            case Keyword("let"):
+                return self.parse_let()
         if type(self.current_token) == list:
             return Parser(self.current_token).parse_expr()
+    
+    def parse_let(self):
+        self.advance()
+        var=self.parse_atom()
+        self.advance()
+        left=self.parse_bool()
+        self.advance()
+        right=self.parse_bool()
+        return Let(var,left,right)
 
     def parse_exp(self):
         left = self.parse_atom()
@@ -756,6 +769,8 @@ class Parser:
                         return self.parse_whileloop()
                     case "def":
                         return self.parse_function()
+                    case "let":
+                        return self.parse_let()
             case Identifier(name):
                 return self.parse_assign()
             case _:
