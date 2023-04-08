@@ -162,7 +162,6 @@ class Lexer:
                     raise TypeError()
         return tokens
 
-
 @dataclass
 class NumLiteral:
     value: Fraction
@@ -225,6 +224,11 @@ class Head:
 @dataclass
 class Tail:
     lst:'AST'
+
+@dataclass
+class Loop_List:
+    lst:'AST'
+    body:'AST'
 
 
 # Implementing If-Else statement
@@ -360,7 +364,7 @@ AST = (
     | Isempty 
     | Head 
     | Tail
-
+    | Loop_List
 )
 
 class InvalidProgram(Exception):
@@ -541,7 +545,7 @@ def eval(program: AST, environment: Environment) -> Value:
                 for task in false_branch:
                     eval(task,environment)
         case BinOp("^", left, right):
-            return eval(left) ** eval(right)
+            return eval(left,environment) ** eval(right,environment)
         case BinOp("!=", left, right):
             return eval(left, environment) != eval(right, environment)
         case BinOp("<=", left, right):
@@ -597,6 +601,13 @@ def eval(program: AST, environment: Environment) -> Value:
                 lst=eval(lst(1),environment)
                 print(eval(Head(lst),environment),' -> ', end=' ')
                 return eval(Tail(lst),environment)
+        #loop for lists
+        case Loop_List(lst,body):
+            environment.enter_scope()
+            while(lst!=None):
+                eval(body,environment)
+                lst=eval(lst(1),environment)
+            environment.exit_scope()
         # adding case for print statement
         case Print(exp):
             value = eval(exp, environment)
@@ -923,10 +934,10 @@ def test_for_list():
     print(eval(Head(list2),environment))
     eval(Tail(list2),environment)
     
-
-
-test_for_list()
-
+    e1=Variable.make("sum")
+    environment.add(e1,NumLiteral(1))
+    result= eval(Loop_List(list,BinOp("=",e1,BinOp("+",e1,Head(list)))),environment)
+    print(result)
 
 
 s = input()
