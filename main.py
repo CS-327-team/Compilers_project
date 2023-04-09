@@ -552,6 +552,7 @@ def eval(program: AST, environment: Environment) -> Value:
                 for task in false_branch:
                     eval(task,environment)
         case BinOp("^", left, right):
+
             return eval(left,environment) ** eval(right,environment)
         case BinOp("!=", left, right):
             return eval(left, environment) != eval(right, environment)
@@ -897,23 +898,6 @@ class Parser:
         #         emptyList.append(ast)
 
     
-
-def test_ForLoop():
-    # for loop that sums up the numbers from 1 to 5
-    e1 = Variable.make("sum")
-    e2 = Variable.make("i")
-    ast = ForLoop(
-        e2,
-        NumLiteral(1),
-        NumLiteral(5),
-        BinOp("=", e1, BinOp("*", e1, e2))
-    )
-    environment = Environment()
-    environment.add(e1, NumLiteral(1))
-    result = eval(ast, environment)
-    print(result)
-    # assert result == Fraction(120)
-
 def test_concat():
     a=Variable("hello")
     b=Variable("world")
