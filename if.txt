@@ -1,5 +1,4 @@
-
-if 1%2==0 then {
+if 4 % 2 == 0 then {
 	print(3);
 	print('Hey There!');
 }
