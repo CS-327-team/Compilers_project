@@ -6,6 +6,7 @@ digit_list = "1234567890"
 alphabet_list = "ABCDEFGHIJKLOMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
 variable_list = []
 
+
 @dataclass
 class EndOfStream(Exception):
     pass
@@ -50,6 +51,10 @@ class Delimiter:
 class String:
     string: str
 
+@dataclass
+class LogicGate:
+    op:str
+
 Token = Num | Bool | Keyword | Identifier | Operator | Paranthesis | Delimiter|String
 
 
@@ -78,9 +83,10 @@ class TokenError(Exception):
     pass
 
 
-operations = ["=", ">", "<", "+", "-", "*", "/", "!=", "<=", ">=", "%", "^"]
+operations = ["=", ">", "<", "+", "-", "*", "/", "!=", "<=", ">=", "%", "^","and","or","xor","xnor","nor","nand"]
 keywords = "if then else while print for from to def let in".split()
-delimiters = ['"', ";"]
+logic_gate=['and','or','not','nand','nor','xor','xnor']
+delimiters = [',', ";"]
 
 class Lexer:
     def __init__(self, text):
@@ -126,7 +132,7 @@ class Lexer:
                         Keyword(temp_str)
                     ) if temp_str in keywords else tokens.append(
                         Bool(True if temp_str == "True" else False)
-                    ) if temp_str in "True False".split() else tokens.append(
+                    ) if temp_str in "True False".split() else tokens.append(LogicGate(temp_str)) if temp_str in logic_gate else tokens.append(
                         Identifier(temp_str)
                     )
                 case "{":
@@ -337,6 +343,16 @@ class Get:
 @dataclass
 class Seq:
     things: List["AST"]
+
+@dataclass
+class NormalBoolOp:
+    operator: "str"
+    left:bool
+    right:bool
+
+@dataclass
+class Not:
+    arg:bool
 
 AST = (
       NumLiteral
@@ -604,7 +620,26 @@ def eval(program: AST, environment: Environment) -> Value:
             value = eval(exp, environment)
             print(value)
             return value
-        
+        case NormalBoolOp(op,left,right):
+            match op:
+                case "and":
+                    return True if eval(left,environment)==True and eval(right,environment)==True else False
+                case "or":
+                    return True if eval(left,environment)==True or eval(right,environment)==True else False
+                case "nand":
+                    block=eval(left,environment) and eval(right,environment)
+                    return not block
+                case "nor":
+                    block=eval(left,environment) or eval(right,environment)
+                    return not block
+                case "xor":
+                    return True if eval(left,environment)==eval(right,environment) else False
+                case "xnor":
+                    return True if eval(left,environment)!=eval(right,environment) else False
+            raise TypeError("Invalid logic gate")
+        case Not(val):
+            value=eval(val,environment)
+            return not value
         # adding case for functions
         case FunCall(parameters, body):
             def function_eval(arguments: List[Value]) -> Value:
@@ -731,13 +766,27 @@ class Parser:
                 right = self.parse_add()
                 left = BinOp(value, left, right)
         return left
+    
+    def parse_logic(self):
+        match self.current_token:
+            case LogicGate("not"):
+                self.advance()
+                return Not(self.parse_bool())
+            case _:
+                left=self.parse_bool()
+                match self.current_token:
+                    case LogicGate(s) if s!="not":
+                        self.advance()
+                        right=self.parse_bool()
+                        left=NormalBoolOp(s,left,right)
+                return left
 
     def parse_assign(self):
-        left = self.parse_bool()
+        left = self.parse_logic()
         match self.current_token:
             case Operator("="):
                 self.advance()
-                right = self.parse_bool()
+                right = self.parse_logic()
                 left = BinOp("=", left, right)
         return left
 
@@ -790,7 +839,7 @@ class Parser:
             case Identifier(name):
                 return self.parse_assign()
             case _:
-                return self.parse_bool()
+                return self.parse_logic()
 
     def parse_function(self):
         self.advance()
@@ -944,7 +993,7 @@ def test_for_list():
     print(result)
 
 
-# s = input()
-# text = open(s).read()
-# l = Lexer(text).tokenize()
-# Parser(l).main()
+s = input()
+text = open(s).read()
+l = Lexer(text).tokenize()
+Parser(l).main()
