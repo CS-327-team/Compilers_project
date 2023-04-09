@@ -1,0 +1,4 @@
+b=True;
+c=False;
+a=b xor c;
+print(a);
