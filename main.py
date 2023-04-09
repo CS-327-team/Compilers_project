@@ -286,15 +286,6 @@ class FunCall:
 
         return result 
 
-@dataclass
-class Put:
-    var: "AST"
-    e1: "AST"
-
-
-@dataclass
-class Get:
-    var: "AST"
 
 @dataclass
 class ParallelLet:
@@ -839,11 +830,24 @@ class Parser:
 
     def main(self):
         asts = self.splitter()
+        # print(asts)
         for ast in asts:
             if type(ast) == List:
                 Parser(ast).main()
             else:
                 eval(ast, environ)
+
+    def mainByte(self):
+        # emptyList = List()
+        asts = self.splitter()
+        return asts
+        # for ast in asts:
+        #     if type(ast) == List:
+        #         Parser(ast).main()
+        #     else:
+        #         emptyList.append(ast)
+
+    
 
 def test_ForLoop():
     # for loop that sums up the numbers from 1 to 5
@@ -940,7 +944,7 @@ def test_for_list():
     print(result)
 
 
-s = input()
-text = open(s).read()
-l = Lexer(text).tokenize()
-Parser(l).main()
+# s = input()
+# text = open(s).read()
+# l = Lexer(text).tokenize()
+# Parser(l).main()
