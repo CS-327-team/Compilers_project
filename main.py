@@ -162,7 +162,6 @@ class Lexer:
                     raise TypeError()
         return tokens
 
-
 @dataclass
 class NumLiteral:
     value: Fraction
@@ -210,35 +209,26 @@ class WhileLoop:
     task: List
 
 @dataclass
-class list:
-    def cons(self,x, y):
-        def dispatch(m):
-            if m == 0:
-                return x
-            elif m == 1:
-                return y
-            else:
-                raise ValueError("Argument not 0 or 1")
-        return dispatch
+class Cons:
+    head:'AST'
+    tail:'AST'
 
-    def is_empty(self,lst):
-        if lst is None:
-            return True
-        return False
+@dataclass
+class Isempty:
+    lst:'AST'
 
-    def head(self,lst):
-        if self.is_empty(lst):
-            raise ValueError("Empty list has no head")
-        return lst(0)
+@dataclass
+class Head:
+    lst:'AST'
 
-    def tail(self,lst):
-        if self.is_empty(lst):
-            raise ValueError("Empty list has no tail")
-        elif self.is_empty(lst(1)):
-            return
-        else:
-            print(self.head(lst(1)),' -> ', end=' ')
-            return self.tail(lst(1))
+@dataclass
+class Tail:
+    lst:'AST'
+
+@dataclass
+class Loop_List:
+    lst:'AST'
+    body:'AST'
 
 
 # Implementing If-Else statement
@@ -296,15 +286,6 @@ class FunCall:
 
         return result 
 
-@dataclass
-class Put:
-    var: "AST"
-    e1: "AST"
-
-
-@dataclass
-class Get:
-    var: "AST"
 
 @dataclass
 class ParallelLet:
@@ -370,7 +351,11 @@ AST = (
     | ForLoop
     | Index | Append | Pop | Concat | Assign | MutableArray
     | WhileLoop
-
+    | Cons 
+    | Isempty 
+    | Head 
+    | Tail
+    | Loop_List
 )
 
 class InvalidProgram(Exception):
@@ -551,7 +536,7 @@ def eval(program: AST, environment: Environment) -> Value:
                 for task in false_branch:
                     eval(task,environment)
         case BinOp("^", left, right):
-            return eval(left) ** eval(right)
+            return eval(left,environment) ** eval(right,environment)
         case BinOp("!=", left, right):
             return eval(left, environment) != eval(right, environment)
         case BinOp("<=", left, right):
@@ -580,7 +565,40 @@ def eval(program: AST, environment: Environment) -> Value:
                 for tas in task:
                     eval(tas, environment)
             environment.exit_scope()
-        
+        case Cons(x, y):
+            def dispatch(m):
+                if m == 0:
+                    return x
+                elif m == 1:
+                    return y
+                else:
+                    raise ValueError("Argument not 0 or 1")
+            return dispatch
+        case Isempty(lst):
+            if lst is None:
+                return True
+            return False
+        case Head(lst):
+            if eval(Isempty(lst),environment):
+                raise ValueError("Empty list has no head")
+            return lst(0)
+        case Tail(lst):
+            if eval(Isempty(lst),environment):
+                raise ValueError("Empty list has no tail")
+            elif eval(Isempty(lst(1)),environment):
+                print(None)
+                return
+            else:
+                lst=eval(lst(1),environment)
+                print(eval(Head(lst),environment),' -> ', end=' ')
+                return eval(Tail(lst),environment)
+        #loop for lists
+        case Loop_List(lst,body):
+            environment.enter_scope()
+            while(lst!=None):
+                eval(body,environment)
+                lst=eval(lst(1),environment)
+            environment.exit_scope()
         # adding case for print statement
         case Print(exp):
             value = eval(exp, environment)
@@ -812,11 +830,24 @@ class Parser:
 
     def main(self):
         asts = self.splitter()
+        # print(asts)
         for ast in asts:
             if type(ast) == List:
                 Parser(ast).main()
             else:
                 eval(ast, environ)
+
+    def mainByte(self):
+        # emptyList = List()
+        asts = self.splitter()
+        return asts
+        # for ast in asts:
+        #     if type(ast) == List:
+        #         Parser(ast).main()
+        #     else:
+        #         emptyList.append(ast)
+
+    
 
 def test_ForLoop():
     # for loop that sums up the numbers from 1 to 5
@@ -892,24 +923,28 @@ def test_mutarray_eval():
     assert eval(e9) == [0, 2]
 
 def test_for_list():
-    lst= List()
-    a=lst.cons(1,None)
-    b=lst.cons(2,a)
-    c= lst.cons(3,b) #created List wit 3,2,1
-    print(lst.head(c)) #output 3
-    d=c(1) # d takes the tail of c
-    print(lst.head(d)) #output 2
-    print(lst.tail(c)) #output 2->1->None
+    a=1
+    b=2
+    c=3
+    d=4
+    e=5
+    lst=Cons(a,Cons(b,Cons(c,Cons(d,Cons(e,None)))))
+    environment=Environment()
+    list=eval(lst,environment) #a list is constructed as 1,2,3,4,5
+    print(eval(Head(list),environment)) 
+    print(eval(Isempty(list),environment)) 
+    eval(Tail(list),environment) # gives tail as 2  ->  3  ->  4  ->  5  ->  None
+    list2= eval(list(1),environment)
+    print(eval(Head(list2),environment))
+    eval(Tail(list2),environment)
+    
+    e1=Variable.make("sum")
+    environment.add(e1,NumLiteral(1))
+    result= eval(Loop_List(list,BinOp("=",e1,BinOp("+",e1,Head(list)))),environment)
+    print(result)
 
-    g=lst.cons(1,None)
-    print(lst.head(g))
-    h=g(1)
-    print(lst.is_empty(g))
-    print(lst.is_empty(h))
 
-
-
-s = input()
-text = open(s).read()
-l = Lexer(text).tokenize()
-Parser(l).main()
+# s = input()
+# text = open(s).read()
+# l = Lexer(text).tokenize()
+# Parser(l).main()
