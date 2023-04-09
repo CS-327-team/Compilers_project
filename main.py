@@ -6,6 +6,7 @@ digit_list = "1234567890"
 alphabet_list = "ABCDEFGHIJKLOMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
 variable_list = []
 
+
 @dataclass
 class EndOfStream(Exception):
     pass
@@ -50,6 +51,10 @@ class Delimiter:
 class String:
     string: str
 
+@dataclass
+class LogicGate:
+    op:str
+
 Token = Num | Bool | Keyword | Identifier | Operator | Paranthesis | Delimiter|String
 
 
@@ -78,9 +83,10 @@ class TokenError(Exception):
     pass
 
 
-operations = ["=", ">", "<", "+", "-", "*", "/", "!=", "<=", ">=", "%", "^"]
+operations = ["=", ">", "<", "+", "-", "*", "/", "!=", "<=", ">=", "%", "^","and","or","xor","xnor","nor","nand"]
 keywords = "if then else while print for from to def let in".split()
-delimiters = ['"', ";"]
+logic_gate=['and','or','not','nand','nor','xor','xnor']
+delimiters = [',', ";"]
 
 class Lexer:
     def __init__(self, text):
@@ -126,7 +132,7 @@ class Lexer:
                         Keyword(temp_str)
                     ) if temp_str in keywords else tokens.append(
                         Bool(True if temp_str == "True" else False)
-                    ) if temp_str in "True False".split() else tokens.append(
+                    ) if temp_str in "True False".split() else tokens.append(LogicGate(temp_str)) if temp_str in logic_gate else tokens.append(
                         Identifier(temp_str)
                     )
                 case "{":
@@ -161,7 +167,6 @@ class Lexer:
                 case _:
                     raise TypeError()
         return tokens
-
 
 @dataclass
 class NumLiteral:
@@ -210,35 +215,26 @@ class WhileLoop:
     task: List
 
 @dataclass
-class list:
-    def cons(self,x, y):
-        def dispatch(m):
-            if m == 0:
-                return x
-            elif m == 1:
-                return y
-            else:
-                raise ValueError("Argument not 0 or 1")
-        return dispatch
+class Cons:
+    head:'AST'
+    tail:'AST'
 
-    def is_empty(self,lst):
-        if lst is None:
-            return True
-        return False
+@dataclass
+class Isempty:
+    lst:'AST'
 
-    def head(self,lst):
-        if self.is_empty(lst):
-            raise ValueError("Empty list has no head")
-        return lst(0)
+@dataclass
+class Head:
+    lst:'AST'
 
-    def tail(self,lst):
-        if self.is_empty(lst):
-            raise ValueError("Empty list has no tail")
-        elif self.is_empty(lst(1)):
-            return
-        else:
-            print(self.head(lst(1)),' -> ', end=' ')
-            return self.tail(lst(1))
+@dataclass
+class Tail:
+    lst:'AST'
+
+@dataclass
+class Loop_List:
+    lst:'AST'
+    body:'AST'
 
 
 # Implementing If-Else statement
@@ -348,6 +344,16 @@ class Get:
 class Seq:
     things: List["AST"]
 
+@dataclass
+class NormalBoolOp:
+    operator: "str"
+    left:bool
+    right:bool
+
+@dataclass
+class Not:
+    arg:bool
+
 AST = (
       NumLiteral
     | BinOp
@@ -361,7 +367,11 @@ AST = (
     | ForLoop
     | Index | Append | Pop | Concat | Assign | MutableArray
     | WhileLoop
-
+    | Cons 
+    | Isempty 
+    | Head 
+    | Tail
+    | Loop_List
 )
 
 class InvalidProgram(Exception):
@@ -542,7 +552,8 @@ def eval(program: AST, environment: Environment) -> Value:
                 for task in false_branch:
                     eval(task,environment)
         case BinOp("^", left, right):
-            return eval(left, environment) ** eval(right, environment)
+
+            return eval(left,environment) ** eval(right,environment)
         case BinOp("!=", left, right):
             return eval(left, environment) != eval(right, environment)
         case BinOp("<=", left, right):
@@ -571,13 +582,65 @@ def eval(program: AST, environment: Environment) -> Value:
                 for tas in task:
                     eval(tas, environment)
             environment.exit_scope()
-        
+        case Cons(x, y):
+            def dispatch(m):
+                if m == 0:
+                    return x
+                elif m == 1:
+                    return y
+                else:
+                    raise ValueError("Argument not 0 or 1")
+            return dispatch
+        case Isempty(lst):
+            if lst is None:
+                return True
+            return False
+        case Head(lst):
+            if eval(Isempty(lst),environment):
+                raise ValueError("Empty list has no head")
+            return lst(0)
+        case Tail(lst):
+            if eval(Isempty(lst),environment):
+                raise ValueError("Empty list has no tail")
+            elif eval(Isempty(lst(1)),environment):
+                print(None)
+                return
+            else:
+                lst=eval(lst(1),environment)
+                print(eval(Head(lst),environment),' -> ', end=' ')
+                return eval(Tail(lst),environment)
+        #loop for lists
+        case Loop_List(lst,body):
+            environment.enter_scope()
+            while(lst!=None):
+                eval(body,environment)
+                lst=eval(lst(1),environment)
+            environment.exit_scope()
         # adding case for print statement
         case Print(exp):
             value = eval(exp, environment)
             print(value)
             return value
-        
+        case NormalBoolOp(op,left,right):
+            match op:
+                case "and":
+                    return True if eval(left,environment)==True and eval(right,environment)==True else False
+                case "or":
+                    return True if eval(left,environment)==True or eval(right,environment)==True else False
+                case "nand":
+                    block=eval(left,environment) and eval(right,environment)
+                    return not block
+                case "nor":
+                    block=eval(left,environment) or eval(right,environment)
+                    return not block
+                case "xor":
+                    return True if eval(left,environment)==eval(right,environment) else False
+                case "xnor":
+                    return True if eval(left,environment)!=eval(right,environment) else False
+            raise TypeError("Invalid logic gate")
+        case Not(val):
+            value=eval(val,environment)
+            return not value
         # adding case for functions
         case FunCall(parameters, body):
             def function_eval(arguments: List[Value]) -> Value:
@@ -704,13 +767,27 @@ class Parser:
                 right = self.parse_add()
                 left = BinOp(value, left, right)
         return left
+    
+    def parse_logic(self):
+        match self.current_token:
+            case LogicGate("not"):
+                self.advance()
+                return Not(self.parse_bool())
+            case _:
+                left=self.parse_bool()
+                match self.current_token:
+                    case LogicGate(s) if s!="not":
+                        self.advance()
+                        right=self.parse_bool()
+                        left=NormalBoolOp(s,left,right)
+                return left
 
     def parse_assign(self):
-        left = self.parse_bool()
+        left = self.parse_logic()
         match self.current_token:
             case Operator("="):
                 self.advance()
-                right = self.parse_bool()
+                right = self.parse_logic()
                 left = BinOp("=", left, right)
         return left
 
@@ -763,7 +840,7 @@ class Parser:
             case Identifier(name):
                 return self.parse_assign()
             case _:
-                return self.parse_bool()
+                return self.parse_logic()
 
     def parse_function(self):
         self.advance()
@@ -879,23 +956,27 @@ def test_mutarray_eval():
     assert eval(e9) == [0, 2]
 
 def test_for_list():
-    lst= list()
-    a=lst.cons(1,None)
-    b=lst.cons(2,a)
-    c= lst.cons(3,b) #created list wit 3,2,1
-    print(lst.head(c)) #output 3
-    d=c(1) # d takes the tail of c
-    print(lst.head(d)) #output 2
-    print(lst.tail(c)) #output 2->1->None
+    a=1
+    b=2
+    c=3
+    d=4
+    e=5
+    lst=Cons(a,Cons(b,Cons(c,Cons(d,Cons(e,None)))))
+    environment=Environment()
+    list=eval(lst,environment) #a list is constructed as 1,2,3,4,5
+    print(eval(Head(list),environment)) 
+    print(eval(Isempty(list),environment)) 
+    eval(Tail(list),environment) # gives tail as 2  ->  3  ->  4  ->  5  ->  None
+    list2= eval(list(1),environment)
+    print(eval(Head(list2),environment))
+    eval(Tail(list2),environment)
+    
+    e1=Variable.make("sum")
+    environment.add(e1,NumLiteral(1))
+    result= eval(Loop_List(list,BinOp("=",e1,BinOp("+",e1,Head(list)))),environment)
+    print(result)
 
-    g=lst.cons(1,None)
-    print(lst.head(g))
-    h=g(1)
-    print(lst.is_empty(g))
-    print(lst.is_empty(h))
 
-
- 
 s = input()
 text = open(s).read()
 l = Lexer(text).tokenize()
