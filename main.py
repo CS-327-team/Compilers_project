@@ -3,7 +3,7 @@ from fractions import Fraction
 from typing import Mapping, List as List
 
 digit_list = "1234567890"
-alphabet_list = "ABCDEFGHIJKLOMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+alphabet_list = "ABCDEFGHIJKLOMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_"
 variable_list = []
 
 
@@ -976,7 +976,7 @@ def test_for_list():
     print(result)
 
 
-s = input()
-text = open(s).read()
-l = Lexer(text).tokenize()
-Parser(l).main()
+# s = input()
+# text = open(s).read()
+# l = Lexer(text).tokenize()
+# Parser(l).main()
