@@ -1,2 +1,6 @@
-print('Hum do ek kamre me bandh!');
-print('Zeeshan will watch spirited away.');
+if(3<4) then {
+  print(4<3);
+  print('3 is not greater than 4');
+}
+else{
+};
