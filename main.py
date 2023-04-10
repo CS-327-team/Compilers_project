@@ -926,13 +926,12 @@ def test_let_eval():
 
 def test_function():
     # Test for base case
-    base = eval(FunCall(['n'], [If(BinOp("==", Variable('n'), NumLiteral(0)), NumLiteral(1), BinOp("*", Variable('n'), FunCall.call('factorial', [BinOp("-", Variable('n'), NumLiteral(1))])))]) \
-                .call([NumLiteral(0)]))
+    factorial = FunCall(['n'], [If(BinOp("==", Variable('n'), NumLiteral(0)), NumLiteral(1), BinOp("*", Variable('n'), FunCall(['factorial'], [BinOp("-", Variable('n'), NumLiteral(1))]).call([BinOp("-", Variable('n'), NumLiteral(1))])))])
+    base = eval(factorial.call([NumLiteral(0)]))
     assert base == 1
     
     # Test for n = 5
-    test_1 = eval(FunCall(['n'], [If(BinOp("==", Variable('n'), NumLiteral(0)), NumLiteral(1), BinOp("*", Variable('n'), FunCall.call('factorial', [BinOp("-", Variable('n'), NumLiteral(1))])))]) \
-                .call([NumLiteral(5)]))
+    test_1 = eval(factorial.call([NumLiteral(5)]))
     assert test_1 == 120
 
 def test_mutarray_eval():
