@@ -1,0 +1,28 @@
+maxLength = 0;
+maxStartingNumber = 0;
+print('Please Wait...');
+
+for number from 1 to 1000000 {
+  length = 1;
+  tempNum = number;
+  
+  while (number!=1){
+    if(number%2==0) then {
+      number = number/2;
+    }
+    else {
+      number = 3*number + 1;
+    };
+    length = length + 1;
+  };
+
+  if (length>maxLength) then {
+    maxLength = length;
+    maxStartingNumber = tempNum; 
+  }
+  else{
+  };
+};
+
+print(maxLength);
+print(maxStartingNumber);
