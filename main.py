@@ -84,7 +84,7 @@ class TokenError(Exception):
 
 
 operations = ["=", ">", "<", "+", "-", "*", "/", "!=", "<=", ">=", "%", "^","and","or","xor","xnor","nor","nand"]
-keywords = "if then else while print for from to def let in".split()
+keywords = "if then else while print for from to def let in cons isempty head tail".split()
 logic_gate=['and','or','not','nand','nor','xor','xnor']
 delimiters = [',', ";"]
 
@@ -820,6 +820,27 @@ class Parser:
         high = self.parse_atom()
         task = Parser(self.current_token).splitter()
         return ForLoop(var, low, high, task)
+    
+    def parse_con(self):
+        self.advance()
+        first=self.parse_atom()
+        self.advance()
+        second=self.parse_atom()
+        return Cons(first,second)
+    
+    def parse_isempty(self):
+        self.advance()
+        list=self.parse_atom()
+        return Isempty(list)
+    
+    def parse_head(self):
+        self.advance()
+        list=self.parse_atom()
+        return Head(list)
+    def parse_tail(self):
+        self.advance()
+        list=self.parse_atom()
+        return Tail(list)
 
     def parse_expr(self):
         match self.current_token:
@@ -837,6 +858,14 @@ class Parser:
                         return self.parse_function()
                     case "let":
                         return self.parse_let()
+                    case "cons":
+                        return self.parse_con()
+                    case "isempty":
+                        return self.parse_isempty()
+                    case "head":
+                        return self.parse_head()
+                    case "tail":
+                        return self.parse_tail()
             case Identifier(name):
                 return self.parse_assign()
             case _:
@@ -976,7 +1005,7 @@ def test_for_list():
     print(result)
 
 
-# s = input()
-# text = open(s).read()
-# l = Lexer(text).tokenize()
-# Parser(l).main()
+s = input()
+text = open(s).read()
+l = Lexer(text).tokenize()
+Parser(l).main()
