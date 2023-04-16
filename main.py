@@ -26,6 +26,13 @@ class Bool:
 class Keyword:
     word: str
 
+@dataclass
+class Bracket:
+    word: str
+
+@dataclass
+class Colon:
+    word: str
 
 @dataclass
 class Identifier:
@@ -136,6 +143,21 @@ class Lexer:
                     ) if temp_str in "True False".split() else tokens.append(LogicGate(temp_str)) if temp_str in logic_gate else tokens.append(
                         Identifier(temp_str)
                     )
+                case "[":
+                    temp=self.current_char
+                
+                    self.advance()
+                    tokens.append(Bracket(temp))
+                    
+                case ":":
+                    temp=self.current_char
+                    self.advance()
+                    tokens.append(Colon(temp))
+                case "]":
+                    temp=self.current_char
+                    self.advance()
+                    tokens.append(Bracket(temp))
+
                 case "{":
                     temp = ""
                     num = 1
@@ -186,18 +208,13 @@ class BinOp:
 @dataclass
 class Variable:
     name: str
-    
-    def slicing(self,name,start_index:NumLiteral,end_index:NumLiteral):
-        
-        if start_index>len(name)-1:
-            raise IndexError
-        if end_index<=start_index:
-            raise IndexError
-        if end_index>len(name):
-            raise IndexError
-        else:
-            string_slice=name[start_index:end_index]
-            return string_slice
+
+@dataclass
+class StringSlice:
+    string:str
+    start:int
+    end:int
+
 @dataclass
 class Var:
     name: str
@@ -610,6 +627,10 @@ def eval(program: AST, environment: Environment) -> Value:
                 lst=eval(lst(1),environment)
                 print(eval(Head(lst),environment),' -> ', end=' ')
                 return eval(Tail(lst),environment)
+        case StringSlice(string,start,end):
+            start_ind=eval(start,environment)
+            end_ind=eval(end,environment)
+            return string[int(start_ind):int(end_ind)]
         #loop for lists
         case Loop_List(lst,body):
             environment.enter_scope()
@@ -709,7 +730,18 @@ class Parser:
             case Paranthesis("("):
                 return self.parse_paran()
             case String(string):
-                return Variable(string)
+                self.advance()
+                if self.current_token == Bracket("["):
+                    self.advance()
+                    start = self.parse_expr()
+                    assert self.current_token == Colon(":")
+                    self.advance()
+                    end = self.parse_expr()
+                    assert self.current_token == Bracket("]")
+                    self.advance()
+                    return StringSlice(string, start, end)
+                else:
+                    return Variable(string)
             case Keyword("let"):
                 return self.parse_let()
         if type(self.current_token) == List:
