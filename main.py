@@ -4,7 +4,7 @@ import time
 from typing import Mapping, List as List
 
 digit_list = "1234567890"
-alphabet_list = "ABCDEFGHIJKLOMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_"
+alphabet_list = "ABCDEFGHIJKLOMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
 variable_list = []
 
 
@@ -85,7 +85,7 @@ class TokenError(Exception):
 
 
 operations = ["=", ">", "<", "+", "-", "*", "/", "!=", "<=", ">=", "%", "^","and","or","xor","xnor","nor","nand"]
-keywords = "if then else while print for from to def let in cons isempty head tail".split()
+keywords = "if then else while print for from to def let in".split()
 logic_gate=['and','or','not','nand','nor','xor','xnor']
 delimiters = [',', ";"]
 
@@ -494,6 +494,7 @@ class Environment:
         self.envs=self.envs[:-1]
 
     def add(self, name, value):
+        # print(self.envs)
         assert name not in self.envs[-1]
         self.envs[-1][name] = value
 
@@ -821,27 +822,6 @@ class Parser:
         high = self.parse_atom()
         task = Parser(self.current_token).splitter()
         return ForLoop(var, low, high, task)
-    
-    def parse_con(self):
-        self.advance()
-        first=self.parse_atom()
-        self.advance()
-        second=self.parse_atom()
-        return Cons(first,second)
-    
-    def parse_isempty(self):
-        self.advance()
-        list=self.parse_atom()
-        return Isempty(list)
-    
-    def parse_head(self):
-        self.advance()
-        list=self.parse_atom()
-        return Head(list)
-    def parse_tail(self):
-        self.advance()
-        list=self.parse_atom()
-        return Tail(list)
 
     def parse_expr(self):
         match self.current_token:
@@ -859,14 +839,6 @@ class Parser:
                         return self.parse_function()
                     case "let":
                         return self.parse_let()
-                    case "cons":
-                        return self.parse_con()
-                    case "isempty":
-                        return self.parse_isempty()
-                    case "head":
-                        return self.parse_head()
-                    case "tail":
-                        return self.parse_tail()
             case Identifier(name):
                 return self.parse_assign()
             case _:
@@ -956,12 +928,13 @@ def test_let_eval():
 
 def test_function():
     # Test for base case
-    factorial = FunCall(['n'], [If(BinOp("==", Variable('n'), NumLiteral(0)), NumLiteral(1), BinOp("*", Variable('n'), FunCall(['factorial'], [BinOp("-", Variable('n'), NumLiteral(1))]).call([BinOp("-", Variable('n'), NumLiteral(1))])))])
-    base = eval(factorial.call([NumLiteral(0)]))
+    base = eval(FunCall(['n'], [If(BinOp("==", Variable('n'), NumLiteral(0)), NumLiteral(1), BinOp("*", Variable('n'), FunCall.call('factorial', [BinOp("-", Variable('n'), NumLiteral(1))])))]) \
+                .call([NumLiteral(0)]))
     assert base == 1
     
     # Test for n = 5
-    test_1 = eval(factorial.call([NumLiteral(5)]))
+    test_1 = eval(FunCall(['n'], [If(BinOp("==", Variable('n'), NumLiteral(0)), NumLiteral(1), BinOp("*", Variable('n'), FunCall.call('factorial', [BinOp("-", Variable('n'), NumLiteral(1))])))]) \
+                .call([NumLiteral(5)]))
     assert test_1 == 120
 
 def test_mutarray_eval():
@@ -1004,6 +977,25 @@ def test_for_list():
     environment.add(e1,NumLiteral(1))
     result= eval(Loop_List(list,BinOp("=",e1,BinOp("+",e1,Head(list)))),environment)
     print(result)
+
+def test_ForLoop():
+    # for loop that sums up the numbers from 1 to 5
+    environment = Environment()
+    e1 = Var("sum")
+    e2 = Var("i")
+    ast = ForLoop(
+        e2,
+        NumLiteral(1),
+        NumLiteral(5),
+        BinOp("=", e1, BinOp("*", e1, e2))
+    )
+    environment.add(e1, NumLiteral(1))
+    result = eval(ast, environment)
+    print(result)
+    # assert result == Fraction(120)
+
+test_ForLoop()
+
 
 # start_time = time.time()
 # s = input()
