@@ -1,6 +1,16 @@
 sum=0;
 for i from 1 to 9 {
 
-if i%3==0 then sum=sum+i else (if i%5==0 then sum=sum+i else sum=sum);
+if (i%3==0) then {
+  sum=sum+i;
+} 
+else {
+  if (i%5==0) then {
+    sum=sum+i;
+  }
+  else {
+    sum=sum;
+  };
+};
 };
 print(sum);

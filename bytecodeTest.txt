@@ -1,6 +1,2 @@
-if(3<4) then {
-  print(4<3);
-  print('3 is not greater than 4');
-}
-else{
-};
+i = 3;
+print(i);

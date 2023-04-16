@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from fractions import Fraction
+import time
 from typing import Mapping, List as List
 
 digit_list = "1234567890"
@@ -1004,8 +1005,10 @@ def test_for_list():
     result= eval(Loop_List(list,BinOp("=",e1,BinOp("+",e1,Head(list)))),environment)
     print(result)
 
-
-s = input()
-text = open(s).read()
-l = Lexer(text).tokenize()
-Parser(l).main()
+# start_time = time.time()
+# s = input()
+# text = open(s).read()
+# l = Lexer(text).tokenize()
+# Parser(l).main()
+# time = time.time() - start_time
+# print("Time taken: ", time, " seconds")
