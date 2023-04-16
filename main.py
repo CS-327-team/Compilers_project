@@ -4,7 +4,7 @@ import time
 from typing import Mapping, List as List
 
 digit_list = "1234567890"
-alphabet_list = "ABCDEFGHIJKLOMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_"
+alphabet_list = "ABCDEFGHIJKLOMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
 variable_list = []
 
 
@@ -95,6 +95,8 @@ class TokenError(Exception):
     pass
 
 
+
+
 operations = [
     "=",
     ">",
@@ -119,6 +121,7 @@ keywords = "if then else while print for from to def let in cons isempty head ta
 array_ops="array get update".split()
 logic_gate = ["and", "or", "not", "nand", "nor", "xor", "xnor"]
 delimiters = [",", ";"]
+
 
 
 class Lexer:
@@ -599,6 +602,7 @@ class Environment:
         self.envs = self.envs[:-1]
 
     def add(self, name, value):
+        # print(self.envs)
         assert name not in self.envs[-1]
         self.envs[-1][name] = value
 
@@ -1162,7 +1166,8 @@ def test_function():
     assert base == 1
 
     # Test for n = 5
-    test_1 = eval(factorial.call([NumLiteral(5)]))
+    test_1 = eval(FunCall(['n'], [If(BinOp("==", Variable('n'), NumLiteral(0)), NumLiteral(1), BinOp("*", Variable('n'), FunCall.call('factorial', [BinOp("-", Variable('n'), NumLiteral(1))])))]) \
+                .call([NumLiteral(5)]))
     assert test_1 == 120
 
 
