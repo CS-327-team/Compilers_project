@@ -627,7 +627,7 @@ def eval(program: AST, environment: Environment) -> Value:
     match program:
         case MutableArray(name, size):
             length = eval(size, environment)
-            environment.update(name,[None for i in range(int(length))])
+            environment.update(name,[Fraction(0,1) for i in range(int(length))])
         case NumLiteral(value):
             return value
         case Variable(name):
@@ -685,7 +685,10 @@ def eval(program: AST, environment: Environment) -> Value:
         case Update(name, index, value):
             ind = eval(index, environment)
             val = eval(value, environment)
-            environment.envs[-1][name][int(ind)-1] = val
+            for env in reversed(environment.envs):
+                if name in env:
+                    env[name][int(ind)-1] = val
+                    return env[name]
         case ForLoop(var, start, end, body):
             start_val = eval(start, environment)
             end_val = eval(end, environment)
