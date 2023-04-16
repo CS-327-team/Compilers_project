@@ -1,0 +1,4 @@
+array a 10;
+update a 2 3;
+print(get a 2);
+print(a);
