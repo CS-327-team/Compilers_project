@@ -1,2 +1,6 @@
-i = 3;
-print(i);
+if (5%5==0) then {
+    print('Divisible');
+  }
+  else {
+  };
+print('Done');
