@@ -627,7 +627,7 @@ def eval(program: AST, environment: Environment) -> Value:
     match program:
         case MutableArray(name, size):
             length = eval(size, environment)
-            environment.update(name,[Fraction(0,1) for i in range(int(length))])
+            return environment.update(name,[0 for i in range(int(length))])
         case NumLiteral(value):
             return value
         case Variable(name):
