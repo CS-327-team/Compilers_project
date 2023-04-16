@@ -1,9 +1,9 @@
 maxLength = 0;
 maxStartingNumber = 0;
 print('Please Wait...');
-array cache 100000000;
+array cache 1000000;
 print('passed this stage');
-for number from 1000 to 10000 {
+for number from 100000 to 1000000 {
   length = 1;
   tempNum = number;
   
@@ -15,6 +15,7 @@ for number from 1000 to 10000 {
       number = 3*number + 1;
     };
     length=length+1;
+    if number<=1000000 then{
     num=get cache number;
       if num!=0 then {
       length=length+num;
@@ -22,6 +23,8 @@ for number from 1000 to 10000 {
     } else {
       number=number;
     };
+    }
+    else{};
   };
   
   update cache tempNum length;
