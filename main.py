@@ -4,7 +4,7 @@ import time
 from typing import Mapping, List as List
 
 digit_list = "1234567890"
-alphabet_list = "ABCDEFGHIJKLOMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+alphabet_list = "ABCDEFGHIJKLOMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_"
 variable_list = []
 
 
@@ -227,6 +227,7 @@ class Lexer:
                     tokens.append(Delimiter(s))
                     self.advance()
                 case _:
+                    print(self.current_char)
                     raise TypeError()
         return tokens
 
