@@ -4,7 +4,7 @@ import time
 from typing import Mapping, List as List
 
 digit_list = "1234567890"
-alphabet_list = "ABCDEFGHIJKLOMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+alphabet_list = "ABCDEFGHIJKLOMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_"
 variable_list = []
 
 
@@ -227,6 +227,7 @@ class Lexer:
                     tokens.append(Delimiter(s))
                     self.advance()
                 case _:
+                    print(self.current_char)
                     raise TypeError()
         return tokens
 
@@ -1218,10 +1219,10 @@ def test_for_list():
     print(result)
 
 
-s = input()
-start_time = time.time()
+s = "euler_problem_14.txt"
+# start_time = time.time()
 text = open(s).read()
 l = Lexer(text).tokenize()
 Parser(l).main()
-time = time.time() - start_time
-print("Time taken: ", time, " seconds")
+# time = time.time() - start_time
+# print("Time taken: ", time, " seconds")
