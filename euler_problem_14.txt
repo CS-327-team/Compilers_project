@@ -1,0 +1,42 @@
+maxLength = 0;
+maxStartingNumber = 0;
+cache_size=1000000;
+print('Please Wait...');
+array cache cache_size;
+print('passed this stage');
+for tempNum from 1 to 1000000 {
+  length = 0;
+  number=tempNum;
+  
+  while (number!=1){
+    if(number%2==0) then {
+      number = number/2;
+    }
+    else {
+      number = 3*number + 1;
+    };
+    length=length+1;
+    if number<=cache_size then{
+    num=get cache number;
+      if num!=0 then {
+      length=length+num;
+      number=1;
+    } else {
+      number=number;
+    };
+    }
+    else{};
+  };
+  
+  update cache tempNum length;
+  
+  if (length>maxLength) then {
+    maxLength = length;
+    maxStartingNumber = tempNum;
+  }
+  else{
+  };
+};
+
+print(maxLength+1);
+print(maxStartingNumber);
