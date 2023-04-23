@@ -1,4 +1,4 @@
-b=True;
-c=False;
+b=False;
+c=True;
 a=b xor c;
 print(a);
