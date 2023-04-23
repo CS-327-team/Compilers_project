@@ -1,6 +1,10 @@
 maxLength = 0;
 maxStartingNumber = 0;
+
+
+
 cache_size=10000000;
+
 print('Please Wait...');
 array cache cache_size;
 print('passed this stage');
