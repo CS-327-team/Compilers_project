@@ -1,7 +1,8 @@
-
-i=13;
-if i%2==0 then 
-	{print(i);}
-else{i=10;
-print(i);};
+if 4 % 2 == 0 then {
+	print(3);
+	print('Hey There!');
+}
+else{
+	print(4);
+};
 
