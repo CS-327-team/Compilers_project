@@ -117,7 +117,11 @@ operations = [
     "nor",
     "nand",
 ]
+<<<<<<< Updated upstream
 keywords = "if then else while print for from to def let in cons isempty head tail func return".split()
+=======
+keywords = "if then else while print for from to def let in cons isempty head tail len".split()
+>>>>>>> Stashed changes
 array_ops="array get update".split()
 logic_gate = ["and", "or", "not", "nand", "nor", "xor", "xnor"]
 delimiters = [",", ";"]
@@ -314,6 +318,9 @@ class Loop_List:
     lst: "AST"
     body: "AST"
 
+@dataclass
+class Length:
+    value: str
 
 # Implementing If-Else statement
 @dataclass
@@ -648,6 +655,9 @@ def eval(program: AST, environment: Environment) -> Value:
             return value
         case Variable(name):
             return name
+        case Length(string):
+            stri = eval(string,environment)
+            return len(str(stri))
         case BoolLiteral(value):
             return value
         case Var(name, value):
@@ -756,9 +766,13 @@ def eval(program: AST, environment: Environment) -> Value:
                 print(eval(Head(lst),environment),' -> ', end=' ')
                 return eval(Tail(lst),environment)
         case StringSlice(string,start,end):
+            if type(string) == Var:
+                stri = eval(string,environment)
+            else:
+                stri = string
             start_ind=eval(start,environment)
             end_ind=eval(end,environment)
-            return string[int(start_ind):int(end_ind)]
+            return stri[int(start_ind)-1:int(end_ind)-1]
         #loop for lists
         case Loop_List(lst,body):
             environment.enter_scope()
@@ -892,7 +906,18 @@ class Parser:
                 return NumLiteral(value)
             case Identifier(name):
                 self.advance()
-                return Var(name=name)
+                if self.current_token == Bracket("["):
+                    self.advance()
+                    start = self.parse_expr()
+                    assert self.current_token == Colon(":")
+                    self.advance()
+                    end = self.parse_expr()
+                    assert self.current_token == Bracket("]")
+                    self.advance()
+                    string = Var(name=name)
+                    return StringSlice(string, start, end)
+                else:
+                    return Var(name=name)
             case Bool(value):
                 self.advance()
                 return BoolLiteral(value)
@@ -1122,6 +1147,7 @@ class Parser:
                         self.advance()
                         arr_index = self.parse_add()
                         return Index(arr_name, arr_index)
+<<<<<<< Updated upstream
                     case "func":
                         self.advance()
                         func_name=None
@@ -1151,6 +1177,12 @@ class Parser:
                     case "return":
                         self.advance()
                         return Return(self.parse_expr())
+=======
+                    case "len":
+                        self.advance()
+                        string = self.parse_atom()
+                        return Length(string)
+>>>>>>> Stashed changes
 
             case Identifier(name):
                 return self.parse_assign()
