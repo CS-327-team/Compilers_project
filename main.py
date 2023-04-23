@@ -117,11 +117,8 @@ operations = [
     "nor",
     "nand",
 ]
-<<<<<<< Updated upstream
-keywords = "if then else while print for from to def let in cons isempty head tail func return".split()
-=======
-keywords = "if then else while print for from to def let in cons isempty head tail len".split()
->>>>>>> Stashed changes
+
+keywords = "if then else while print for from to def let in cons isempty head tail func return len".split()
 array_ops="array get update".split()
 logic_gate = ["and", "or", "not", "nand", "nor", "xor", "xnor"]
 delimiters = [",", ";"]
@@ -1147,7 +1144,6 @@ class Parser:
                         self.advance()
                         arr_index = self.parse_add()
                         return Index(arr_name, arr_index)
-<<<<<<< Updated upstream
                     case "func":
                         self.advance()
                         func_name=None
@@ -1177,12 +1173,10 @@ class Parser:
                     case "return":
                         self.advance()
                         return Return(self.parse_expr())
-=======
                     case "len":
                         self.advance()
                         string = self.parse_atom()
                         return Length(string)
->>>>>>> Stashed changes
 
             case Identifier(name):
                 return self.parse_assign()
