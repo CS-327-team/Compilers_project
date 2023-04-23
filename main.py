@@ -779,9 +779,9 @@ def eval(program: AST, environment: Environment) -> Value:
                     return not block
                 case "xor":
                     return (
-                        True
+                        False
                         if eval(left, environment) == eval(right, environment)
-                        else False
+                        else True
                     )
                 case "xnor":
                     return (
@@ -1219,7 +1219,7 @@ def test_for_list():
     print(result)
 
 
-s = "euler_problem_14.txt"
+s = input()
 # start_time = time.time()
 text = open(s).read()
 l = Lexer(text).tokenize()
