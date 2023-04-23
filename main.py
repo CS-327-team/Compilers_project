@@ -954,6 +954,7 @@ class Parser:
         var = self.parse_atom()
         self.advance()
         left = self.parse_bool()
+        assert self.current_token==Keyword("in")
         self.advance()
         right = self.parse_bool()
         return Let(var, left, right)
