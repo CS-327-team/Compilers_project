@@ -1,0 +1,10 @@
+print('helloworld'[1:5]);
+b=True;
+c=False;
+a=b xor c;
+print(a);
+
+array a 10;
+update 2 3;
+print(get a 2);
+print(a);
