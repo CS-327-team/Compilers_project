@@ -1,9 +1,9 @@
 array a 5;
-a update 'tejas';
-a update 'tetka';
-a update 'tjjas';
-a update 'jejss';
-a update 'utras';
+update a 1 'tejas';
+update a 2 'tetka';
+update a 3 'tjjas';
+update a 4 'jejss';
+update a 5 'utras';
 
 max_count = 0;
 arrLen = len a;
@@ -12,10 +12,13 @@ count = 0;
 
 for i from 1 to arrLen{
   str1 = get a i;
-  for j from i to arrLen{
+  for j from (i+1) to arrLen{
     count = 0;
     str2 = get a j;
-    for k from 1 to len str1{
+    strLen = len str1; 
+    print(str1);
+    print(str2);
+    for k from 1 to strLen{
       if(str1[k:k+1] != str2[k:k+1])then{
         count = count + 1;
       }
