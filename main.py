@@ -981,6 +981,10 @@ class Parser:
                         master.append(ast)
                 master.append(Parser(temp).parse_expr())
                 return FuncCall(name, master)
+            case Keyword("len"):
+                self.advance()
+                string = self.parse_atom()
+                return Length(string)
 
         if type(self.current_token) == List:
             return Parser(self.current_token).parse_expr()
