@@ -1,0 +1,22 @@
+s= 'abbaaa';
+
+l= len s;
+
+if l%2==0 then {
+   m=l/2;
+}
+else{
+    m=(l-1)/2;
+};
+
+
+for i from 1 to m{
+    if s[i: i+1] != s[l-i+1: l-i+2] then{
+        print('False');
+    }
+
+    else{print('True');};
+};
+print(m);
+
+
