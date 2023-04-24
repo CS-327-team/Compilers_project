@@ -117,7 +117,8 @@ operations = [
     "nor",
     "nand",
 ]
-keywords = "if then else while print for from to def let in cons isempty head tail".split()
+
+keywords = "if then else while print for from to def let in cons isempty head tail func return len".split()
 array_ops="array get update".split()
 logic_gate = ["and", "or", "not", "nand", "nor", "xor", "xnor"]
 delimiters = [",", ";"]
@@ -314,6 +315,9 @@ class Loop_List:
     lst: "AST"
     body: "AST"
 
+@dataclass
+class Length:
+    value: str
 
 # Implementing If-Else statement
 @dataclass
@@ -356,6 +360,7 @@ Value = Fraction | FnObject | bool | ForLoop | Let
 # Implementing functions
 @dataclass
 class FunCall:
+    name:str
     parameters: List[str]
     body: List["AST"]
 
@@ -456,6 +461,20 @@ class NormalBoolOp:
 class Not:
     arg: bool
 
+@dataclass
+class FuncEval:
+    arg_name:List['AST']=None
+    arg_val:List['AST']=None
+    task_list:List['AST']=None
+
+@dataclass
+class FuncCall:
+    name:str
+    args:List['AST']
+
+@dataclass
+class Return:
+    value:'AST'
 
 AST = (
     NumLiteral
@@ -633,6 +652,9 @@ def eval(program: AST, environment: Environment) -> Value:
             return value
         case Variable(name):
             return name
+        case Length(string):
+            stri = eval(string,environment)
+            return len(str(stri))
         case BoolLiteral(value):
             return value
         case Var(name, value):
@@ -705,6 +727,8 @@ def eval(program: AST, environment: Environment) -> Value:
                 for tas in task:
                     eval(tas, environment)
             environment.exit_scope()
+        case Return(value):
+            return eval(value,environment)
         case Cons(x, y):
 
             def dispatch(m):
@@ -714,7 +738,6 @@ def eval(program: AST, environment: Environment) -> Value:
                     return y
                 else:
                     raise ValueError("Argument not 0 or 1")
-
             return dispatch
         case Isempty(lst):
             if lst is None:
@@ -740,9 +763,13 @@ def eval(program: AST, environment: Environment) -> Value:
                 print(eval(Head(lst),environment),' -> ', end=' ')
                 return eval(Tail(lst),environment)
         case StringSlice(string,start,end):
+            if type(string) == Var:
+                stri = eval(string,environment)
+            else:
+                stri = string
             start_ind=eval(start,environment)
             end_ind=eval(end,environment)
-            return string[int(start_ind):int(end_ind)]
+            return stri[int(start_ind)-1:int(end_ind)-1]
         #loop for lists
         case Loop_List(lst,body):
             environment.enter_scope()
@@ -794,7 +821,26 @@ def eval(program: AST, environment: Environment) -> Value:
             value = eval(val, environment)
             return not value
         # adding case for functions
-        case FunCall(parameters, body):
+        case FunCall(name,parameters,body):
+            parameter=[]
+            for param in parameters:
+                parameter.append(Var(param.word,None))
+            environment.envs[-1][name]=FuncEval(parameter,None,body)
+        case FuncCall(name,args):
+            body=environment.get(name)
+            body.arg_val=args
+            return eval(body,environment)
+        case FuncEval(arg_name,arg_val,task_list):
+            environment.envs.append({})
+            for i in range(len(arg_name)):
+                environment.envs[-1][arg_name[i].name]=None
+                eval(BinOp("=",arg_name[i],arg_val[i]),environment)
+            for task in task_list:
+                if type(task)==Return:
+                    return eval(task,environment)
+                eval(task,environment)        
+            environment.exit_scope()
+        case FunCall(name,parameters, body):
 
             def function_eval(arguments: List[Value]) -> Value:
                 # create a copy of the environment for the function
@@ -802,8 +848,8 @@ def eval(program: AST, environment: Environment) -> Value:
                 function_environment = environment.copy()
 
                 # mapping the arguments to the parameter names
-                for name, value in zip(parameters, arguments):
-                    function_environment[name] = value
+                for name_, value in zip(parameters, arguments):
+                    function_environment[name_] = value
 
                 # evaluating the function in the new environment
                 result = None
@@ -813,13 +859,13 @@ def eval(program: AST, environment: Environment) -> Value:
 
             return function_eval
 
-        # adding case for function calls
-        case FunCall.call(name, arguments):
-            function = eval(Variable(name), environment)
-            # evaluating the arguments
-            evaluated_arguments = [eval(arg, environment) for arg in arguments]
-            # calling the function with the evaluated arguments
-            return function(evaluated_arguments)
+        # # adding case for function calls
+        # case FunCall.call(name, arguments):
+        #     function = eval(Variable(name), environment)
+        #     # evaluating the arguments
+        #     evaluated_arguments = [eval(arg, environment) for arg in arguments]
+        #     # calling the function with the evaluated arguments
+        #     return function(evaluated_arguments)
         case _:
             raise InvalidProgram()
 
@@ -857,7 +903,18 @@ class Parser:
                 return NumLiteral(value)
             case Identifier(name):
                 self.advance()
-                return Var(name=name)
+                if self.current_token == Bracket("["):
+                    self.advance()
+                    start = self.parse_expr()
+                    assert self.current_token == Colon(":")
+                    self.advance()
+                    end = self.parse_expr()
+                    assert self.current_token == Bracket("]")
+                    self.advance()
+                    string = Var(name=name)
+                    return StringSlice(string, start, end)
+                else:
+                    return Var(name=name)
             case Bool(value):
                 self.advance()
                 return BoolLiteral(value)
@@ -884,6 +941,32 @@ class Parser:
                 self.advance()
                 arr_index = self.parse_add()
                 return Index(arr_name, arr_index)
+            case Keyword("func"):
+                self.advance()
+                func_name=None
+                match self.current_token:
+                    case Identifier(name):
+                        func_name=name
+                    case _:
+                        raise InvalidProgram("Invalid function name")
+                self.advance()
+                assert self.current_token==Paranthesis("(")
+                self.advance()
+                master=[]
+                arg_list=[]
+                while self.current_token!=Paranthesis(")"):
+                    arg_list.append(self.current_token)
+                    self.advance()
+                temp=[]
+                for arg in arg_list:
+                    if arg!=Delimiter(","):
+                        temp.append(arg)
+                    else:
+                        ast=Parser(temp).parse_expr()
+                        temp=[]
+                        master.append(ast)
+                master.append(Parser(temp).parse_expr())
+                return FuncCall(name,master)
             
         if type(self.current_token) == List:
             return Parser(self.current_token).parse_expr()
@@ -893,6 +976,7 @@ class Parser:
         var = self.parse_atom()
         self.advance()
         left = self.parse_bool()
+        assert self.current_token==Keyword("in")
         self.advance()
         right = self.parse_bool()
         return Let(var, left, right)
@@ -1029,6 +1113,8 @@ class Parser:
                         return self.parse_loop()
                     case "while":
                         return self.parse_whileloop()
+                    case "def":
+                        return self.parse_function()
                     case "let":
                         return self.parse_let()
                     case "cons":
@@ -1058,6 +1144,39 @@ class Parser:
                         self.advance()
                         arr_index = self.parse_add()
                         return Index(arr_name, arr_index)
+                    case "func":
+                        self.advance()
+                        func_name=None
+                        match self.current_token:
+                            case Identifier(name):
+                                func_name=name
+                            case _:
+                                raise InvalidProgram("Invalid function name")
+                        self.advance()
+                        assert self.current_token==Paranthesis("(")
+                        self.advance()
+                        master=[]
+                        arg_list=[]
+                        while self.current_token!=Paranthesis(")"):
+                            arg_list.append(self.current_token)
+                            self.advance()
+                        temp=[]
+                        for arg in arg_list:
+                            if arg!=Delimiter(","):
+                                temp.append(arg)
+                            else:
+                                ast=Parser(temp).parse_expr()
+                                temp=[]
+                                master.append(ast)
+                        master.append(Parser(temp).parse_expr())
+                        return FuncCall(name,master)
+                    case "return":
+                        self.advance()
+                        return Return(self.parse_expr())
+                    case "len":
+                        self.advance()
+                        string = self.parse_atom()
+                        return Length(string)
 
             case Identifier(name):
                 return self.parse_assign()
@@ -1066,7 +1185,24 @@ class Parser:
 
     def parse_function(self):
         self.advance()
-        pass
+        func_name=None
+        match self.current_token:
+            case Identifier(name):
+                func_name=name
+            case _:
+                raise TypeError("Function should have a name")
+        self.advance()
+        params=[]
+        assert self.current_token==Paranthesis("(")
+        self.advance()
+        while self.current_token!=Paranthesis(")"):
+            if self.current_token!=Delimiter(","):
+                params.append(self.current_token)
+            self.advance()
+        self.advance()
+        assert type(self.current_token)==list
+        task_list=Parser(self.current_token).splitter()
+        return FunCall(func_name,params,task_list)
 
     def parse_whileloop(self):
         self.advance()
