@@ -1,0 +1,38 @@
+size=20;
+array arr size;
+for i from 1 to size{
+    if i%2==1 then {
+        update arr i i-1;
+    }
+    else{
+        update arr i size+1-i;
+    };
+    print(get arr i);
+};
+update arr 1 2;
+update arr 2 3;
+update arr 3 5;
+print('Triplets such that two of them sum up to third one:');
+for i from 1 to (size-2){
+    for j from (i+1) to (size-1){
+        for k from (j+1) to size{
+            a_0=get arr i;
+            a_1=get arr j;
+            a_2=get arr k;
+            truthval=a_0+a_1==a_2;
+            truthval=truthval or (a_0+a_2==a_2);
+            truthval=truthval or (a_1+a_2==a_0);
+            if truthval then {
+                print(a_0);
+                print(a_1);
+                print(a_2);  
+            print('_________________________');
+            }
+            else{
+
+            };
+            
+        };
+    };
+};
+print('No more triplets');

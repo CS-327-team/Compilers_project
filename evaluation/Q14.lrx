@@ -1,0 +1,26 @@
+size=20;
+array arr size;
+for i from 1 to size{
+    if i%2==1 then {
+        update arr i i-1;
+    }
+    else{
+        update arr i size+1-i;
+    };
+    print(get arr i);
+};
+print('Number of inversions:');
+num=0;
+for i from 1 to (size-1){
+    for j from (i+1) to size{
+        a=get arr i;
+        b=get arr j;
+        if a>b then {
+            num=num+1;
+        }
+        else{
+            num=num;
+        };
+    };
+};
+print(num);
