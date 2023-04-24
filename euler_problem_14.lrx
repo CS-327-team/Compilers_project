@@ -1,10 +1,10 @@
 maxLength = 0;
 maxStartingNumber = 0;
-cache_size=10000000;
+cache_size=10000;
 print('Please Wait...');
 array cache cache_size;
 print('passed this stage');
-for tempNum from 1 to 1000000 {
+for tempNum from 1 to 100 {
   length = 0;
   number=tempNum;
   

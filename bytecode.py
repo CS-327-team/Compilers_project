@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from fractions import Fraction
 from typing import List
-from main import AST, BinOp, BoolLiteral, FunCall, If, Let, Lexer, NumLiteral, Parser, Print, Put, Seq, String, Value, Var, Variable, WhileLoop
+from main import AST, BinOp, BoolLiteral, Environment, ForLoop, FunCall, If, Let, Lexer, NumLiteral, Parser, Print, Put, Seq, String, Value, Var, Variable, WhileLoop
 
 @dataclass
 class CompiledFunction:
@@ -378,7 +378,7 @@ def do_codegen (
         "<=": I.LE(),
         ">=": I.GE(),
         "==": I.EQ(),
-        # "≠": I.NEQ(),
+        "!=": I.NEQ(),
         # "not": I.NOT()
     }
 
@@ -392,6 +392,9 @@ def do_codegen (
             codegen_(left)
             codegen_(right)
             code.emit(simple_ops[op])
+        case BinOp("=", left, right):
+            codegen_(right)
+            code.emit(I.STORE(left.localID))
         case BinOp("and", left, right):
             E = code.label()
             codegen_(left)
@@ -426,18 +429,37 @@ def do_codegen (
             code.emit_label(F)
             codegen_(iffalse)
             code.emit_label(E)
+        case ForLoop(var, start, end, body):
+            B = code.label()
+            E = code.label()
+            codegen_(start)
+            code.emit(I.STORE(var.localID))
+            code.emit_label(B)
+            codegen_(end)
+            code.emit(I.LOAD(var.localID))
+            code.emit(I.GE())
+            code.emit(I.JMP_IF_FALSE(E))
+            codegen_(body)
+            code.emit(I.LOAD(var.localID))
+            code.emit(I.PUSH(1))
+            code.emit(I.ADD())
+            code.emit(I.STORE(var.localID))
+            # code.emit(I.POP())
+            code.emit(I.JMP(B))
+            code.emit_label(E)
         case WhileLoop(cond, body):
             B = code.label()
             E = code.label()
             code.emit_label(B)
             codegen_(cond)
+            # code.emit(I.NEQ())
             code.emit(I.JMP_IF_FALSE(E))
             codegen_(body)
-            code.emit(I.POP())
+            # code.emit(I.POP())
             code.emit(I.JMP(B))
             code.emit_label(E)
             code.emit(I.PUSH(None))
-        case (Var() as v):
+        case Var() as v:
             code.emit(I.LOAD(v.localID))
         case Put(Var() as v, e):
             codegen_(e)
@@ -465,7 +487,7 @@ def do_codegen (
 s = input()
 text = open(s).read()
 l = Lexer(text).tokenize()
-pikachu = Parser(l).mainByte()
+pikachu = Parser(l, env = Environment()).mainByte()
 # print(pikachu)
 CodeList = ByteCode()
 

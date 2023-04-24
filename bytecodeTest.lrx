@@ -1,6 +1,12 @@
-if (5%5==0) then {
-    print('Divisible');
+number = 77031;
+length = 1;
+while (number!=1){
+  if(number%2==0) then {
+    number = number/2;
   }
   else {
+    number = 3*number + 1;
   };
-print('Done');
+  length = length + 1;
+};
+print(length);

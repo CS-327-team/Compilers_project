@@ -272,6 +272,9 @@ class StringSlice:
 class Var:
     name: str
     value: str | int | bool = None
+    id: int = None
+    fdepth: int = None
+    localID: int = None
 
 
 @dataclass
@@ -606,6 +609,12 @@ class Environment:
         # print(self.envs)
         assert name not in self.envs[-1]
         self.envs[-1][name] = value
+    
+    def check(self, name):
+        for env in reversed(self.envs):
+            if name in env:
+                return True
+        return False
 
     def get(self, name):
         for env in reversed(self.envs):
@@ -838,11 +847,24 @@ environ = Environment()
 
 
 class Parser:
-    def __init__(self, tokens):
+    def __init__(self, tokens, env=None, stk=None, lastID=None):
         self.tokens = tokens
         self.current_token = None
         self.position = -1
         self.advance()
+        self.env = Environment() if env is None else env
+        self.stk = [[0, -1]] if stk is None else stk
+        self.lastID = -1 if lastID is None else lastID
+
+    def handle_new(self, v):
+        v.fdepth = self.current_fdepth()
+        v.id = self.lastID = self.lastID + 1
+        v.localID = self.stk[-1][1] = self.stk[-1][1] + 1
+        # v.staticJumps = 0
+        # self.env[v.name] = v
+
+    def current_fdepth(self):
+        return len(self.stk) - 1
 
     def advance(self):
         self.position += 1
@@ -857,7 +879,15 @@ class Parser:
                 return NumLiteral(value)
             case Identifier(name):
                 self.advance()
-                return Var(name=name)
+                if self.env.check(name):
+                    e = self.env.get(name)
+                    # print(e,self.env.envs)
+                    return Var(name, e.value, e.id, e.fdepth, e.localID)
+                else:    
+                    v = Var(name)
+                    self.handle_new(v)
+                    self.env.add(name, v)
+                    return v
             case Bool(value):
                 self.advance()
                 return BoolLiteral(value)
@@ -886,7 +916,7 @@ class Parser:
                 return Index(arr_name, arr_index)
             
         if type(self.current_token) == List:
-            return Parser(self.current_token).parse_expr()
+            return Parser(self.current_token, env=self.env, stk=self.stk, lastID=self.lastID).parse_expr()
 
     def parse_let(self):
         self.advance()
@@ -957,6 +987,7 @@ class Parser:
                 return left
 
     def parse_assign(self):
+
         left = self.parse_logic()
         match self.current_token:
             case Operator("="):
@@ -971,11 +1002,11 @@ class Parser:
         COND = self.parse_expr()
         THEN = self.parse_bool()
         self.advance()
-        TRUE = Parser(self.current_token).splitter()
+        TRUE = Parser(self.current_token, env=self.env).splitter()
         self.advance()
         ELSE = self.parse_bool()
         self.advance()
-        FALSE = Parser(self.current_token).splitter()
+        FALSE = Parser(self.current_token, env=self.env, stk=self.stk, lastID=self.lastID).splitter()
         return If(COND, TRUE, FALSE)
 
     def parse_print(self):
@@ -984,7 +1015,15 @@ class Parser:
 
     def parse_loop(self):
         self.advance()
-        var = Var(name=self.current_token.word, value=None)
+        temp = self.current_token.word
+        if(self.env.check(temp)):
+            e = self.env.get(temp)
+            var = Var(name=temp, value=e.value, id=e.id, fdepth=e.fdepth, localID=e.localID)
+        else:
+            var = Var(name=temp, value=None)
+            self.handle_new(var)
+            self.env.add(temp, var)
+
         self.advance()
         assert self.current_token == Keyword("from")
         self.advance()
@@ -992,7 +1031,7 @@ class Parser:
         assert self.current_token == Keyword("to")
         self.advance()
         high = self.parse_atom()
-        task = Parser(self.current_token).splitter()
+        task = Parser(self.current_token, env=self.env).splitter()
         return ForLoop(var, low, high, task)
 
     def parse_con(self):
@@ -1071,7 +1110,7 @@ class Parser:
     def parse_whileloop(self):
         self.advance()
         cond = self.parse_bool()
-        task = Parser(self.current_token).splitter()
+        task = Parser(self.current_token, env=self.env, stk=self.stk, lastID=self.lastID).splitter()
         return WhileLoop(cond, task)
 
     def parse_paran(self):
@@ -1090,13 +1129,13 @@ class Parser:
             token_temp.append(s)
             self.advance()
         self.advance()
-        return Parser(token_temp).parse_expr()
+        return Parser(token_temp, env=self.env, stk=self.stk, lastID=self.lastID).parse_expr()
 
     def splitter(self):
         ast = []
         temp = self.tokens[:]
         while len(temp) > 0:
-            ast.append(Parser(temp[: temp.index(Delimiter(";"))]).parse_expr())
+            ast.append(Parser(temp[: temp.index(Delimiter(";"))], env=self.env, stk=self.stk, lastID=self.lastID).parse_expr())
             temp = temp[temp.index(Delimiter(";")) + 1 :]
         return ast
 
@@ -1105,19 +1144,15 @@ class Parser:
         # print(asts)
         for ast in asts:
             if type(ast) == List:
-                Parser(ast).main()
+                Parser(ast, env=self.env, stk=self.stk, lastID=self.lastID).main()
             else:
                 eval(ast, environ)
 
     def mainByte(self):
         # emptyList = List()
         asts = self.splitter()
+        # print(asts)
         return asts
-        # for ast in asts:
-        #     if type(ast) == List:
-        #         Parser(ast).main()
-        #     else:
-        #         emptyList.append(ast)
 
 
 def test_concat():
@@ -1219,10 +1254,10 @@ def test_for_list():
     print(result)
 
 
-s = input()
-# start_time = time.time()
-text = open(s).read()
-l = Lexer(text).tokenize()
-Parser(l).main()
+# s = input()
+# # start_time = time.time()
+# text = open(s).read()
+# l = Lexer(text).tokenize()
+# Parser(l, env=Environment()).main()
 # time = time.time() - start_time
 # print("Time taken: ", time, " seconds")
