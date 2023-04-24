@@ -1,0 +1,35 @@
+size=20;
+array arr size;
+for i from 1 to size{
+    if i%4==0 then {
+        temp=-i;
+        update arr i temp;
+    }
+    else{
+        update arr i size+1-i;
+    };
+    print(get arr i);
+};
+maxsubarraysum=-1000000;
+start=0;
+end=0;
+for i from 1 to size{
+    for j from i to size{
+        subarray_sum=0;
+        for k from i to j{
+            subarray_sum=subarray_sum+get arr k;
+        };
+        if subarray_sum>maxsubarraysum then{
+            maxsubarraysum=subarray_sum;
+            start=i;
+            end=j;
+
+        } else {};
+    };
+};
+print('Sum');
+print(maxsubarraysum);
+print('Subarray');
+for i from start to end{
+    print(get arr i);
+};

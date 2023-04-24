@@ -471,6 +471,9 @@ class NormalBoolOp:
 class Not:
     arg: bool
 
+@dataclass
+class Neg:
+    value:Fraction
 
 @dataclass
 class FuncEval:
@@ -665,6 +668,8 @@ def eval(program: AST, environment: Environment) -> Value:
             return value
         case Variable(name):
             return name
+        case Neg(value):
+            return -eval(value,environment)
         case Length(string):
             stri = eval(string,environment)
             return len(str(stri))
@@ -685,6 +690,7 @@ def eval(program: AST, environment: Environment) -> Value:
         case BinOp("-", left, right):
             return eval(left, environment) - eval(right, environment)
         case BinOp("*", left, right):
+            print(program)
             return eval(left, environment) * eval(right, environment)
         case BinOp("/", left, right):
             return eval(left, environment) / eval(right, environment)
@@ -985,6 +991,11 @@ class Parser:
                 self.advance()
                 string = self.parse_atom()
                 return Length(string)
+            case Operator("-"):
+                self.advance()
+                val=self.parse_expr()
+                return Neg(val)
+
 
         if type(self.current_token) == List:
             return Parser(self.current_token).parse_expr()
