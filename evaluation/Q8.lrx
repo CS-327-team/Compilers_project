@@ -1,0 +1,14 @@
+array arr 5;
+update arr 1 1;
+update arr 2 2;
+update arr 3 3;
+update arr 4 4;
+update arr 5 5;
+sum = 0;
+
+for i from 1 to 5{
+	temp= get arr i;
+	sum = sum + temp;
+};
+
+print(sum);
