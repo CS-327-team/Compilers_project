@@ -1,0 +1,6 @@
+inp=21;
+for i from 2 to 20{
+   if inp%i==0 then {print('composite');}
+   else{print('prime');};
+};
+
