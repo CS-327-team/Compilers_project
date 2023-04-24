@@ -1,0 +1,9 @@
+inp = 'Compilers';
+length = len inp;
+
+string = '';
+for i from 1 to length{
+    s = inp[length-i+1:length-i+2];
+    string = string + s;
+};
+print(string);

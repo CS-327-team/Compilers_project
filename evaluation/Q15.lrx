@@ -1,0 +1,6 @@
+inp = 5;
+result = 1;
+for i from 1 to 5{
+    result = result*i;
+};
+print(result);
