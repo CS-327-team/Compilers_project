@@ -1,0 +1,21 @@
+array a 5;
+a update 'tejas';
+a update 'rohit';
+a update 'hetvi';
+a update 'sahil';
+a update 'shami';
+
+max_count = 0;
+arrLen = len a;
+
+count = 0;
+
+for i from 1 to arrLen{
+  if(str1[i:i+1] != str2[i:i+1])then{
+    count = count + 1;
+  }
+  else{
+  };
+};
+
+print(count);

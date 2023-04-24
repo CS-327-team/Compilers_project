@@ -1,0 +1,42 @@
+def longest_subsequence(arr){
+  lengthArr = len arr;
+    if lengthArr == 0 then{ 
+      return 0;
+    }
+    else{
+    };
+    if lengthArr == 1 then{
+      return 1;
+    }
+    else{
+    };
+
+    max_len = 1;
+    
+    output_subsequence 
+
+    for i from 1 to lengthArr{
+      for j from i+1 to lengthArr{ 
+        temp = 0;
+        if get arr j > get arr i then{
+          max_len = max_len + 1;
+          temp = get arr j;
+        }
+        else{
+        };
+           
+      }
+    }
+}
+
+array arr 8;
+arr update 0 1;
+arr update 1 1;
+arr update 2 3;
+arr update 3 4;
+arr update 4 4;
+arr update 5 6;
+arr update 6 7;
+arr update 7 8;
+
+print(longest_subsequence(arr));
