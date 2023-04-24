@@ -1,0 +1,24 @@
+array a 5;
+update a 1 2;
+update a 2 7;
+update a 3 9;
+update a 4 3;
+update a 5 5;
+
+first=0;
+second =0;
+specific = 10;
+for i from 1 to 4{
+    for j from (i+1) to 5{
+        c = get a i;
+        d = get a j;
+        if (c+d==specific) then{
+            first = c;
+            second = d;
+        }
+        else{};
+    };
+};
+
+print(first);
+print(second);
