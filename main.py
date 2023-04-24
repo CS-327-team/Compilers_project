@@ -1428,10 +1428,10 @@ def test_for_list():
     print(result)
 
 
-# s = input()
-# # start_time = time.time()
-# text = open(s).read()
-# l = Lexer(text).tokenize()
-# Parser(l, env=Environment()).main()
+s = 'evaluation/Q11.txt'
+# start_time = time.time()
+text = open(s).read()
+l = Lexer(text).tokenize()
+Parser(l, env=Environment()).main()
 # time = time.time() - start_time
 # print("Time taken: ", time, " seconds")
