@@ -1,0 +1,6 @@
+a = 'hello world';
+print(len a);  
+
+a= 'lirix is our language';
+print(a[1:13]);
+print(len a);
