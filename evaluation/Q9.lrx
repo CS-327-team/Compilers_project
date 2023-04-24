@@ -1,0 +1,40 @@
+size=20;
+array arr size;
+for i from 1 to size{
+    if i%2==1 then {
+        update arr i i-1;
+    }
+    else{
+        update arr i size+1-i;
+    };
+};
+leng=0;
+start_ind=0;
+for i from 1 to size{
+    prev=i;
+    templen=0;
+    for j from (i+1) to size{
+        num1=get arr j;
+        num2=get arr prev;
+        if num1>num2 then {
+            templen=templen+1;
+            prev=j;
+        } else {};
+
+    };
+    if templen>leng then {
+        start_ind=i;
+        leng=templen;
+    }
+    else{};
+};
+prev=start_ind;
+for i from (start_ind+1) to size{
+    num=get arr prev;
+    cur=get arr i;
+    if cur>num then {
+        prev=i;
+        print(get arr i);
+    }
+    else{};
+};
