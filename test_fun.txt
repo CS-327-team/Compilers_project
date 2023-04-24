@@ -1,0 +1,6 @@
+a=5;
+def foo(a){
+    return a+1;
+};
+c=func foo(1+1);
+print(c);
