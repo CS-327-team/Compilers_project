@@ -77,3 +77,30 @@ for i from 1 to 5{
 Change 5 to the length of the input array. 
 
 Result :- The sum of elements of numbers will directly be printed in the console. 
+
+# Question 13: <br>
+array arr 5; -> this line initialises an array of length 5. Pass the length of required input array instead of 5.
+When this array is initialised, all its elements are initialised to 0. In order to make the desired array, use update to make the elements of the array as desired. 
+To make the array [2,7,9,3,5], we have used the following statements:
+update arr 1 2;
+update arr 2 7;
+update arr 3 9;
+update arr 4 3;
+update arr 5 5;
+
+This will create an array : [2,7,9,3,5].
+
+Used a for loop to iterate over the array to find the largest number in the array. then store the largest value and again used a loop to iterate over the array and finding the second largest number using the condition in if statement.
+
+Result :- The second largest number in the array will be printed out as output.
+
+# Question 15: <br>
+Assigning inp variable the input number. Using a loop to iterate from 1 to the input number to get the factorial.
+
+Result :- The factorial of the input number
+
+# Question 17: <br>
+Assigning inp variable the input string. Calculated length of the input string and iterating over the range of 1 to length of string using for loop. stored each letter starting from the end to start and cocatenated on each iteration.
+
+Result :- The string in a reverse order would be displayed as an output.
+
