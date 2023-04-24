@@ -1,0 +1,31 @@
+len = 5;
+array arr len;
+update arr 1 1;
+update arr 2 2;
+update arr 3 3;
+update arr 4 4;
+update arr 5 5;
+dump = 1;
+ans1=0;
+ans2=0;
+
+k = 9;
+for i from 1 to len{
+	for j from 1 to len{
+		if i!=j then{
+			one = get arr i;
+			two = get arr j;
+			if one + two == k then {
+				ans1 = one;
+				ans2 = two;
+			}
+			else{
+				dump = 1;
+			};}
+		else{
+			dump=1;
+		};
+	};
+};
+print(ans1);
+print(ans2);

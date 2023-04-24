@@ -1,0 +1,12 @@
+inp = 'the name of our language is lirix';
+ans = 0;
+for i from 1 to len(inp){
+	if inp[i:i+1] == ' ' then {
+		ans = ans + 1;
+	}
+	else {
+		ans = ans;
+	};
+};
+
+print(ans+1);

@@ -1,0 +1,14 @@
+inp = 'hello';
+sum = 0;
+for i from 1 to len(inp){
+	a = (inp[i:i+1] == 'a') or (inp[i:i+1] == 'e');
+	b = a or (inp[i:i+1] == 'i');
+	c = b or (inp[i:i+1] == 'o');
+	d = c or (inp[i:i+1] == 'u'); 
+	if d == True then {
+		sum = sum + 1;
+	}
+	else {sum = sum;};
+};
+
+print(sum);
