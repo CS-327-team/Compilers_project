@@ -1,0 +1,30 @@
+array a 5;
+update a 1 2;
+update a 2 7;
+update a 3 9;
+update a 4 3;
+update a 5 5;
+
+largest = 0;
+for i from 1 to 5{
+    b = get a i;
+    if b>largest then{
+        largest =b;
+    }
+    else{
+        largest = largest;
+    };
+};
+secondlargest = 0;
+for i from 1 to 5{
+    c = get a i;
+    if c>secondlargest then{
+        if c!=largest then{
+            secondlargest=c;
+        }
+        else{};
+    }
+    else{};
+};
+
+print(secondlargest);
