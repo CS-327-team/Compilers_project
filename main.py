@@ -1439,9 +1439,9 @@ def test_for_list():
     print(result)
 
 
-
-s = input()
-# start_time = time.time()
-text = open(s).read()
-l = Lexer(text).tokenize()
-Parser(l, env=Environment()).main()
+while True:
+    s = input()
+    # start_time = time.time()
+    text = open(s).read()
+    l = Lexer(text).tokenize()
+    Parser(l, env=Environment()).main()

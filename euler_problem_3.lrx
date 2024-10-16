@@ -1,7 +1,7 @@
-n=100;
+n=1000;
 i=2;
 while i^2<=n{
-	if n%i!=0 then {n=n/i;} else {i=i+1;};
+	if n%i==0 then {n=n/i;} else {i=i+1;};
 	b=1;
 };
 print(n);
